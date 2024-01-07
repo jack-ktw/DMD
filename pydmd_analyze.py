@@ -1,391 +1,387 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Dec  5 18:06:27 2023
-
 @author: Jack
 """
-
-from pydmd import DMD, FbDMD, BOPDMD
-from pydmd.plotter import plot_eigs, plot_summary
-from pydmd.preprocessing.hankel import hankel_preprocessing
-import matplotlib.pyplot as plt
-import numpy as np
-
-# %% A
-
-
-fp = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\left_region\ux.csv"
-data = np.loadtxt(fp, skiprows=1, delimiter=",")
-fp = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\left_region\uy.csv"
-data_y = np.loadtxt(fp, skiprows=1, delimiter=",")
-fp = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\left_region\uz.csv"
-data_z = np.loadtxt(fp, skiprows=1, delimiter=",")
-
-# %%
-fp = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\left_region\p.csv"
-data_p = np.loadtxt(fp, skiprows=1, delimiter=",")
-
-fp = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\building_p.csv"
-data_p2 = np.loadtxt(fp, skiprows=1, delimiter=",")
-
-# %%
 import os
+import glob
+import gc
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 from sklearn import preprocessing
-# normalized_data = preprocessing.normalize(data_select)
-tn = 1200
-data_select1 = data[:tn, 3001:6001]
-data_select2 = data_y[:tn, 3001:6001]
-data_select3 = data_z[:tn, 3001:6001]
-data_select4 = data_p[:tn, 3001:6001]
-data_select5 = data_p2[:tn, 1:]
-t = data[:tn, 0]
-
-
-save_dir = r"C:\Users\Jack\offline\MrDMD"
-coord_fp = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\left_region\coords.csv"
-coords = np.loadtxt(coord_fp, skiprows=1, delimiter=",")
-coords_select = coords[3000:6000, 1:]
-
-coord_fp_building = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\building_coords_flat.csv"
-coords_building = np.loadtxt(coord_fp_building, skiprows=1, delimiter=",")[:, [1, 2]]
-
-data_select1 = preprocessing.normalize(data_select1[:, coords_select[:, 0] < 0.05])
-data_select2 = preprocessing.normalize(data_select2[:, coords_select[:, 0] < 0.05])
-data_select3 = preprocessing.normalize(data_select3[:, coords_select[:, 0] < 0.05])
-data_select4 = preprocessing.normalize(data_select4[:, coords_select[:, 0] < 0.05])
-coords_select = coords_select[coords_select[:, 0] < 0.05]
-
-data_select5 = preprocessing.normalize(data_select5)
-
-# data_select = np.hstack([data_select1, data_select2, data_select3, data_select4])
-# data_select = np.hstack([data_select1, data_select2])
-data_select = np.hstack([data_select1, data_select2, data_select4, data_select5])
-# data_select = data_select4.copy()
-
-# %%
-
-data_select = data_select - data_select.mean(axis=0)
-
-normalized_data = data_select
-n = normalized_data.shape[1]
-
-# %%
-# tn = 400
-# data_select = data[:tn, 3000:6000]
-# t = data[:tn, 0]
-# dmd0 = FbDMD(svd_rank=20)
-# dmd0 = BOPDMD(svd_rank=20, num_trials=0, eig_constraints={"imag", "conjugate_pairs"})
-
-# delays = 1
-# delay_dmd = hankel_preprocessing(dmd0, d=delays)
-# num_t = len(t) - delays + 1
-# delay_dmd.fit(data_select.T, t=t[:num_t])
-
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
-from pydmd.plotter import plot_eigs_mrdmd
+from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
 
+matplotlib.use('Agg')
 
-
-x = np.arange(data_select.shape[1])
-
-# delay = 5
-# sub_dmd = HankelDMD(svd_rank=0.9, exact=True, d=delay, sorted_eigs='abs', tikhonov_regularization=1e-8)
-sub_dmd = DMD(svd_rank=-1)
-# sub_dmd = FbDMD(svd_rank=0.9, sorted_eigs='abs', exact=True)
-
-# 
-# dmd0 = BOPDMD(svd_rank=0.5, num_trials=0, eig_sort="abs")
-# dmd0._varpro_opts_dict["verbose"] = True
-# dmd0 = hankel_preprocessing(dmd0, d=delay)
-# num_t = len(t) - delay + 1
-# dmd0.fit(X=normalized_data.T, t=t[:num_t])
-
-# dmd0 = HAVOK()
-# dmd0.fit(normalized_data.T, t[1] - t[0])
-
-
-dmd0 = MrDMD(sub_dmd, max_level=7, max_cycles=10)
-dmd0.fit(X=normalized_data.T)
-print("# modes:", dmd0.modes.shape)
-
-for level in range(dmd0.max_level):
-    print(f"level: {level}, shape:{dmd0.partial_modes(level=level).shape}")
-
-# %%
-
-for j in [0, 50, 100, 200, 1000, 2000, 3000]:
-    pdata = dmd0.reconstructed_data
-    plt.plot(pdata[j, :], alpha=0.7, label=f"DMD")
-    plt.plot(normalized_data[:, j], alpha=0.6, label="original")
-    plt.legend()
-    plt.show()
-    
-# %%
-
-idx_li = dmd0.time_window_bins(0, 400)
-freqs = []
-amps = []
-for idx in idx_li:
-    if len(dmd0.dmd_tree[idx].frequency) > 0:
-        freqs.append(dmd0.dmd_tree[idx].frequency[0])
-        amps.append(abs(dmd0.dmd_tree[idx].amplitudes[0]))
-        plt.text(freqs[-1], amps[-1], s=str(idx))
-plt.scatter(freqs, amps)
-
-# %%
-plot_summary(dmd0, snapshots_shape=(60, 20*delay*3))
-# plot_eigs_mrdmd(dmd0, show_axes=True, show_unit_circle=True, figsize=(8, 8))
-
-def make_plot(X, x=None, y=None, figsize=(12, 8), title="", vmin=None, vmax=None):
-    """
-    Plot of the data X
-    """
-    plt.figure(figsize=figsize)
-    plt.title(title)
-    X = np.real(X)
-    CS = plt.pcolor(y, x, X.T, vmin=vmin, vmax=vmax)
-    cbar = plt.colorbar(CS)
-    plt.xlabel("Time")
-    plt.ylabel("Space")
-    plt.savefig(os.path.join(save_dir, f"{level}_{j}_spectrum.png"))
-
-# vmin = min(dmd0.reconstructed_data.real[:, :].min(), data_select.min())
-# vmax = max(dmd0.reconstructed_data.real[:, :].max(), data_select.max())
-# make_plot(dmd0.reconstructed_data.T, x=x, y=t, vmin=vmin, vmax=vmax)
-# make_plot(data_select, x=x, y=t, vmin=vmin, vmax=vmax)
-
-# %%
-# plot_summary(dmd0, snapshots_shape=(150, 60))
-
-dim_labels = ["U", "V", "P"]
-
-import matplotlib.pyplot as plt
-
-
-div_idx = data_select5.shape[1]
-
-dt = t[1] - t[0]
-for level in range(0, dmd0.max_level+1):
-    pmodes = dmd0.partial_modes(level=level)
-    pdyna = dmd0.partial_dynamics(level=level)
-    peigs = dmd0.partial_eigs(level=level)
-    freq = np.log(peigs).imag / (2 * np.pi * dt)
-    grow = peigs.real
-    t = data[:tn, 0]
-# t = t[:num_t]
-# for level in range(1):
-    # pmodes = dmd0.modes
-    # pdyna = dmd0.dynamics
-
-    plt.figure(figsize=(6,4))
-    fig = plt.plot(t, pdyna.real.T)
-    plt.legend(range(pdyna.real.shape[0]))
-    plt.title(f"level:{level}")
-    # plt.show()
-    plt.savefig(os.path.join(save_dir, f"{level}_dynamics.png"))
-    plt.close()
-
-    n_dim = 3
-    n_i, n_j, n_k = 60, 20, n_dim
-    n_i2, n_j2 = 20, 25
-    
-    pmodes = pmodes[:n, :] # use only first timestep if there is delay embedding
-    pmodes1 = pmodes[:-div_idx, :]
-    pmodes2 = pmodes[-div_idx:, :]
-    for j in range(pmodes.shape[1]):
-        size = (20, 16)
-        # fig = plt.plot(x, pmodes.real)
-        X = coords_select[:, 0].reshape(n_j, n_i)[0, :]
-        Y = coords_select[:, 1].reshape(n_j, n_i)[:, 0]
+class Dataset:
+    def __init__(self, name="dataset", is_building=False) -> None:
+        self.path = None
+        self.coords_array = None
+        self.coords_ln = None
+        self.data_array = np.empty((0,1))
+        self.time_array = np.empty((0,1))
+        self.name = name
+        self.scaler = preprocessing.RobustScaler()
+        self.is_building = is_building
         
-        Z = abs(pmodes1[:, j]).reshape(n_k, n_j, n_i)
-        for dim in range(n_dim):
-            Phi = Z[dim, :, :]
+    def load_data(self, path):
+        self.path = path
+        data = np.loadtxt(path, skiprows=1, delimiter=",")
+        self.time_array = data[:, 0]
+        self.data_array = data[:, 1:]
     
-            plt.figure(figsize=(8, 6))
-            cmap="viridis"
-            ax = plt.subplot(111)
-            vmin = 0
-            vmax = Z.max()
-            levels = np.linspace(vmin, vmax, 20)
-            CS = plt.contourf(X, Y, Phi, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
-            colorbar = plt.colorbar(CS)
+    def load_coords(self, path):
+        self.coords_array = np.loadtxt(path, skiprows=1, delimiter=",")[:, [1, 2, 3]]
+        
+    def assign_coords(self, from_dataset):
+        while from_dataset.coords_ln is not None:
+            from_dataset = from_dataset.coords_ln
+        self.coords_ln = from_dataset
+        
+    def get_coords(self):
+        if self.coords_array is None:
+            return self.coords_ln.coords_array
+        return self.coords_array
+        
+    def trim_data(self, t1=0, t2=None, i1=0, i2=None):
+        self.time_array = self.time_array[t1:t2]
+        self.data_array = self.data_array[t1:t2, i1:i2]
+        
+        if self.coords_array is not None:
+            self.coords_array = self.coords_array[i1:i2, :]
+        
+    def filter_data(self, x_lower=-np.inf, x_upper=np.inf, y_lower=-np.inf, y_upper=np.inf):
+        if self.coords_array is None:
+            coords = self.coords_ln.coords_array
+        else:
+            coords = self.coords_array
+        x = coords[:, 0]
+        y = coords[:, 1]
+        idx = np.logical_and(np.logical_and(x < x_upper, x >= x_lower), np.logical_and(y < y_upper, y >= y_lower))
+        self.data_array = self.data_array[:, idx]
+        
+        if self.coords_array is not None:
+            self.coords_array = self.coords_array[idx, :]
+
+        
+    def demean_data(self):
+        self.data_mean = self.data_array.mean(axis=0)
+        self.data_array = self.data_array - self.data_mean
+
+    def normalize_data(self):
+        original_shape = self.data_array.shape
+        flattened_data = self.data_array.flatten().reshape(-1, 1)
+        self.scaler.fit(flattened_data)
+        flattened_data = self.scaler.transform(flattened_data)
+        self.data_array = flattened_data.reshape(original_shape)
+
+class DMDAnalysis:
+    def __init__(self, data_dir=".", save_dir="dmd_output",
+                 max_level=4, max_cycles=10, 
+                 svd_rank=-1,
+                 tikhonov_regularization=1e-7) -> None:
+        self.data_dir = data_dir
+        self.save_dir = save_dir
+        self.datasets = []
+        self.dmd = None
+        self.dt = None
+        self.train_X = None
+        self.ds_idx_to_trainX_idx = None
+        
+        self.max_level = max_level
+        self.max_cycles = max_cycles
+        self.svd_rank = svd_rank
+        self.tikhonov_regularization = tikhonov_regularization
+        
+    def make_save_dir(self):
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+        
+    def add_dataset(self, dataset):
+        self.datasets.append(dataset)
+        self.dt = dataset.time_array[1] - dataset.time_array[0]
+        
+    def add_datasets(self, names, relative_paths, coords_relative_paths=-1,
+                     is_building_li=None):
+        if is_building_li is None:
+            is_building_li = [False] * len(names)
+        for i in range(len(names)):
+            ds = Dataset(names[i], is_building=is_building_li[i])
+            data_fp = os.path.join(self.data_dir, relative_paths[i])
+            ds.load_data(data_fp)
+            if coords_relative_paths[i] == -1:
+                ds.assign_coords(analysis.datasets[-1])
+            else:
+                coord_fp = os.path.join(self.data_dir, coords_relative_paths[i])
+                ds.load_coords(coord_fp)
+            self.add_dataset(ds)
             
-            if n_dim > 1:
-                plt.quiver(X, Y, Z[0, :, :], Z[1, :, :], scale_units='xy', angles='uv')
-            ax.set_title(f"level:{level}, mode:{j}, {dim_labels[dim]}, {freq[j]:.1f} Hz, g:{grow[j]:.2f}")
-            ax.set_aspect("equal")
-            plt.savefig(os.path.join(save_dir, f"modeshape_{level}_{j}_{dim_labels[dim]}_{freq[j]:.1f}Hz.png"))
+    def trim_datasets(self, t1=0, t2=None, i1=0, i2=None, ds_indices=None):
+        if ds_indices is None:
+            ds_indices = range(len(self.datasets))
+        for i in ds_indices:
+            self.datasets[i].trim_data(t1, t2, i1, i2)
+        
+    def filter_datasets(self, x_lower=-np.inf, x_upper=np.inf, y_lower=-np.inf, y_upper=np.inf, ds_indices=None):
+        if ds_indices is None:
+            ds_indices = range(len(self.datasets))
+
+        # ds_indices needs to be in descending order so linked coords are filtered first
+        ds_indices = sorted(ds_indices, reverse=True)
+        for i in ds_indices:
+            self.datasets[i].filter_data(x_lower, x_upper, y_lower, y_upper)
+            
+    def demean_datasets(self, ds_indices=None):
+        if ds_indices is None:
+            ds_indices = range(len(self.datasets))
+        for i in ds_indices:
+            self.datasets[i].demean_data()
+            
+    def normalize_datasets(self, ds_indices=None):
+        if ds_indices is None:
+            ds_indices = range(len(self.datasets))
+        for i in ds_indices:
+            self.datasets[i].normalize_data()
+            
+    def compose_data(self, ds_indices=None):
+        if ds_indices is None:
+            ds_indices = range(len(self.datasets))
+            
+        n = len(self.datasets[0].time_array)
+        data = np.empty((n, 0))
+        self.ds_idx_to_trainX_idx = {}
+        
+        for i in ds_indices:
+            start_idx = data.shape[1]
+            data = np.hstack([data, self.datasets[i].data_array])
+            end_idx = data.shape[1]
+            self.ds_idx_to_trainX_idx[i] = (start_idx, end_idx)
+        self.train_X = data
+            
+    def fit(self, ds_indices=None):
+        sub_dmd = DMD(svd_rank=self.svd_rank, tikhonov_regularization=self.tikhonov_regularization)
+        self.dmd = MrDMD(sub_dmd, max_level=self.max_level, max_cycles=self.max_cycles)
+        self.compose_data(ds_indices=ds_indices)
+        self.dmd.fit(X=self.train_X.T)
+        
+        print("# modes:", self.dmd.modes.shape)
+        for level in range(self.dmd.max_level):
+            print(f"level: {level}, shape:{self.dmd.partial_modes(level=level).shape}")
+            
+    def plot_timeseries(self, idx_li):
+        pdata = self.dmd.reconstructed_data
+        for idx in idx_li:
+            fig_name = f"timeseries_{idx}"
+            plt.figure(figsize=(12, 8))
+            plt.plot(pdata[idx, :], alpha=0.7, label=f"DMD")
+            plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
+            # plt.ylim([-1.1, 1.1])
+            plt.legend()
+            plt.title(fig_name)
+            plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
             
-        X2 = coords_building[:, 0].reshape(n_j2, n_i2)[0, :]
-        Y2 = coords_building[:, 1].reshape(n_j2, n_i2)[:, 0]
-
-        Z = abs(pmodes2[:, j]).reshape(n_j2, n_i2)
-        Phi = Z
-        plt.figure(figsize=(8, 6))
-        cmap="viridis"
-        ax = plt.subplot(111)
-        vmin = 0
-        vmax = Z.max()
-        levels = np.linspace(vmin, vmax, 20)
-        CS = plt.contourf(X2, Y2, Phi, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
-        colorbar = plt.colorbar(CS)
-        ax.set_title(f"level:{level}, mode:{j}, building_p, {freq[j]:.1f} Hz, g:{grow[j]:.2f}")
-        ax.set_aspect("equal")
-        line_value = 0.5 * 2/3
-        ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-        ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-        ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-        ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
-        plt.savefig(os.path.join(save_dir, f"modeshape_{level}_{j}_building_p_{freq[j]:.1f}Hz.png"))
-        plt.close()
-            
+    def plot_dynamics(self, max_level=-1):
+        pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
+        self.clean_up_figures(pattern)
         
-        # Plot dynamics
-        plt.figure(figsize=(8, 6))
-        fig = plt.plot(t, pdyna.real.T[:, j])
-        plt.title(f"level:{level}, mode:{j}")
-        ax.set_aspect("equal")
-        plt.savefig(os.path.join(save_dir, f"modeshape_{level}_{j}_dynamics.png"))
-        plt.close()
+        print("plotting dynamics:")
+        print("Saving to:", self.save_dir)
+        if max_level == -1:
+            max_level = self.dmd.max_level
+        for level in range(max_level+1):
+            pmodes = self.dmd.partial_modes(level=level)
+            pdyna = self.dmd.partial_dynamics(level=level)
+            t = self.datasets[0].time_array
 
-        Z = np.angle(pmodes1[:n, j]).reshape(n_k, n_j, n_i)
-        cmap="twilight"
-        for dim in range(n_dim):
-            Phi = Z[dim, :, :]
+            fig_name = f"{level}_dynamics"
+            fig = plt.figure(figsize=(6,4))
+            plt.plot(t, pdyna.real.T)
+            plt.legend(range(pdyna.real.shape[0]))
+            plt.title(f"level:{level}")
+            plt.savefig(os.path.join(self.save_dir, f"1_{fig_name}.png"))
+            plt.close(fig)
+        plt.cla()
+        plt.clf()
+        plt.close("all")
+        gc.collect()
             
-            # scale = 10
-            
-            plt.figure(figsize=size)
-            ax = plt.subplot(111)
-            vmin = -np.pi
-            vmax = np.pi
-            levels = np.linspace(vmin, vmax, 20)
-            CS = plt.contourf(X, Y, Phi, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
-            colorbar = plt.colorbar(CS)
-            # plt.quiver(X, Y, U, V, scale_units='xy', angles='uv')
-            ax.set_title(f"level:{level}, mode:{j}, {dim_labels[dim]}_im")
-            ax.set_aspect("equal")
-            plt.savefig(os.path.join(save_dir, f"modeshape_{level}_{j}_{dim_labels[dim]}_phase_{freq[j]:.1f}Hz.png"))
-            plt.close()
-            
-        Z = np.angle(pmodes2[:, j]).reshape(n_j2, n_i2)
-        Phi = Z
-        plt.figure(figsize=(8, 6))
-        cmap="twilight"
-        ax = plt.subplot(111)
-        vmin = -np.pi
-        vmax = np.pi
-        levels = np.linspace(vmin, vmax, 20)
-        CS = plt.contourf(X2, Y2, Phi, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
-        colorbar = plt.colorbar(CS)
-        ax.set_title(f"level:{level}, mode:{j}, building_p_phase")
-        ax.set_aspect("equal")
+    def save_dmd(self):
+        self.dmd.save(os.path.join(self.save_dir, "dmd.pkl"))
         
-        line_value = 0.5 * 2/3
-        ax.axvline(x=0, color='red', linestyle='--', linewidth=2)
-        ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-        ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-        ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
-
-        plt.savefig(os.path.join(save_dir, f"modeshape_{level}_{j}_building_p_phase_{freq[j]:.1f}Hz.png"))
-        plt.close()
+    def load_dmd(self):
+        self.dmd = MrDMD.load(os.path.join(self.save_dir, "dmd.pkl"))
             
-        '''
-        plt.figure(figsize=(8, 6))
-        fig = plt.plot(t, pdyna.imag.T[:, j])
-        plt.title(f"level:{level}, mode:{j}_im")
-        ax.set_aspect("equal")
-        plt.savefig(os.path.join(save_dir, f"modeshape_{level}_{j}_im_dynamics.png"))
-        plt.close()
-        '''
+    def clean_up_figures(self, pattern):
+        matching_files = glob.glob(pattern)
+        print("cleaning up", pattern)
+        for file in matching_files:
+            os.remove(file)
+            # print("removed", file)
+
+    def plot_modes(self, ds_idx, max_level=-1):
+        if max_level == -1:
+            max_level = self.dmd.max_level
+        start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
+        coords_array = self.datasets[ds_idx].get_coords()
+        n_i = len(np.unique(coords_array[:, 0]))
+        n_j = len(np.unique(coords_array[:, 1]))
+        name = self.datasets[ds_idx].name
+        is_building = self.datasets[ds_idx].is_building
+        
+        pattern = os.path.join(self.save_dir, f"2_modeshape_*_*_{name}_*Hz.png")
+        self.clean_up_figures(pattern)
+        
+        print("plotting modes:", name")
+        print("Saving to:", self.save_dir)
+        for level in range(max_level+1):
+            print("level:", level)
+            pmodes = self.dmd.partial_modes(level=level)
+            peigs = self.dmd.partial_eigs(level=level)
+            
+            for mode_idx in range(pmodes.shape[1]):
+                Z_all = abs(pmodes[:, mode_idx])
+                pmodes_select = pmodes[start_i:end_i, mode_idx].reshape(n_j, n_i)
+                X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
+                Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
+                Z = abs(pmodes_select)
+                # Z = np.linalg.norm(pmodes_select)
+                
+                freq = np.log(peigs[mode_idx]).imag / (2 * np.pi * self.dt)
+                grow = peigs[mode_idx].real
+
+                fig = plt.figure(figsize=(8, 6))
+                cmap="viridis"
+                ax = plt.subplot(111)
+                vmin = 0
+                vmax = Z_all.max()
+                levels = np.linspace(vmin, vmax, 20)
+                CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
+                colorbar = plt.colorbar(CS)
+                ax.set_title(f"level:{level}, mode:{mode_idx}, {name}, {freq:.1f} Hz, g:{grow:.2f}")
+                ax.set_aspect("equal")
+                
+                if is_building:
+                    line_value = 0.5 * 2/3
+                    ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
+                    ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+
+                plt.savefig(os.path.join(save_dir, f"2_modeshape_{level}_{mode_idx}_{name}_{freq:.1f}Hz.png"))
+                plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
+                
+    def plot_phase(self, ds_idx, max_level=-1):
+        if max_level == -1:
+            max_level = self.dmd.max_level
+        start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
+        coords_array = self.datasets[ds_idx].get_coords()
+        n_i = len(np.unique(coords_array[:, 0]))
+        n_j = len(np.unique(coords_array[:, 1]))
+        name = self.datasets[ds_idx].name
+        is_building = self.datasets[ds_idx].is_building
+        
+        pattern = os.path.join(self.save_dir, f"2_modeshape_*_*_{name}_*Hz_phase.png")
+        self.clean_up_figures(pattern)
+        print("plotting phases:", name")
+        print("Saving to:", self.save_dir)
+        for level in range(max_level+1):
+            print("level:", level)
+            pmodes = self.dmd.partial_modes(level=level)
+            peigs = self.dmd.partial_eigs(level=level)
+            
+            for mode_idx in range(pmodes.shape[1]):
+                pmodes_select = pmodes[start_i:end_i, mode_idx].reshape(n_j, n_i)
+                X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
+                Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
+                Z = np.angle(pmodes_select)
+                
+                freq = np.log(peigs[mode_idx]).imag / (2 * np.pi * self.dt)
+                grow = peigs[mode_idx].real
+
+                fig = plt.figure(figsize=(8, 6))
+                cmap="twilight"
+                ax = plt.subplot(111)
+                vmin = -np.pi
+                vmax = np.pi
+                levels = np.linspace(vmin, vmax, 20)
+                CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
+                colorbar = plt.colorbar(CS)
+                ax.set_title(f"phase: level:{level}, mode:{mode_idx}, {name}, {freq:.1f} Hz, g:{grow:.2f}")
+                ax.set_aspect("equal")
+                
+                if is_building:
+                    line_value = 0.5 * 2/3
+                    ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
+                    ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+
+                plt.savefig(os.path.join(save_dir, f"2_modeshape_{level}_{mode_idx}_{name}_{freq:.1f}Hz_phase.png"))
+                plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
+                
+    def plot_all_ds(self, max_level=-1):
+        for ds_idx in self.ds_idx_to_trainX_idx.keys():
+            self.plot_modes(ds_idx, max_level)
+            self.plot_phase(ds_idx, max_level)
+            
+if __name__ == "__main__":
+    data_dir = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED"
+    save_dir = r"C:\Users\Jack\offline\MrDMD"
+
+    max_level = 6
+    max_cycles = 4
+    svd_rank = -1
+    tikhonov_regularization = 1e-7
+            
+    analysis = DMDAnalysis(data_dir, save_dir, 
+                        max_level, max_cycles, svd_rank, tikhonov_regularization)
+    analysis.make_save_dir()
+
+    names = ["U", "V", "W", "p", "building_p"]
+    is_building_li = [False, False, False, False, True]
+    relative_paths = [r"left_region/ux.csv", r"left_region/uy.csv", r"left_region\uz.csv", r"left_region\p.csv", r"building_p.csv"]
+    coords_relative_paths = [r"left_region/coords.csv", -1, -1, -1, r"building_coords_flat.csv"]
+    analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
+    analysis.trim_datasets(t1=0, t2=800, i1=3000, i2=6000, ds_indices=[0, 1, 2, 3])
+    analysis.trim_datasets(t1=0, t2=800, ds_indices=[4])
+    analysis.filter_datasets(x_upper=0.05, ds_indices=[0, 1, 2, 3])
+    analysis.demean_datasets()
+    analysis.normalize_datasets()
+    # analysis.compose_data(ds_indices=[0, 1, 4])
+    analysis.fit(ds_indices=[0, 1, 4])
+    analysis.save_dmd()
+    # analysis.load_dmd()
+
+    analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
+    analysis.plot_dynamics()
+    analysis.plot_all_ds()
 
 
-# %%
+    # %%
 
-pdyna = dmd0.dynamics
-j = 2
-plt.figure(figsize=(8, 6))
-fig = plt.plot(t, pdyna.real.T[:, j])
-plt.title(f"level:{level}, mode:{j}")
-ax.set_aspect("equal")
+    # idx_li = dmd0.time_window_bins(0, 400)
+    # freqs = []
+    # amps = []
+    # for idx in idx_li:
+    #     if len(dmd0.dmd_tree[idx].frequency) > 0:
+    #         freqs.append(dmd0.dmd_tree[idx].frequency[0])
+    #         amps.append(abs(dmd0.dmd_tree[idx].amplitudes[0]))
+    #         plt.text(freqs[-1], amps[-1], s=str(idx))
+    # plt.scatter(freqs, amps)
 
-    
-# %%
-tmp = np.array(dmd0.modes_activation_bitmask)
-tmp[:] = True
-dmd0.modes_activation_bitmask = tmp
-    
-ends = [0, 1, 2]
-for end in ends:
-    j = 50
-    tmp = np.array(dmd0.modes_activation_bitmask)
-    tmp[:end] = False
-    dmd0.modes_activation_bitmask = tmp
-    pdata = dmd0.reconstructed_data
-    plt.plot(pdata[j, :], alpha=0.7, label=f"DMD-{end}")
-
-plt.plot(data_select[:, j], alpha=0.6, label="original")
-plt.legend()
-
-
-# %%
-
-# %%
-fshed = 4.72
-Tshed = 1/fshed
-fs = 1/0.005
-print("# of snapshots per shed", Tshed*fs)
-
-
-# %%
-import matplotlib.pyplot as plt
-import warnings
-
-warnings.filterwarnings("ignore")
-
-print(
-    f"Frequencies (imaginary component): {np.round(delay_dmd.eigs, decimals=3)}"
-)
-
-vmin = min(delay_dmd.reconstructed_data.real[:, :].min(), data_select.min())
-vmax = max(delay_dmd.reconstructed_data.real[:, :].max(), data_select.max())
-
-plt.figure(figsize=(20, 5))
-plt.title("Reconstructed Data")
-plt.imshow(delay_dmd.reconstructed_data.real[:, :], cmap='jet', vmin=vmin, vmax=vmax)
-colorbar = plt.colorbar()
-plt.show()
-plt.figure(figsize=(20, 5))
-plt.title("Ground Truth Data")
-plt.imshow(data_select[:, :].T, cmap='jet', vmin=vmin, vmax=vmax)
-colorbar = plt.colorbar()
-plt.show()
-
-# %%
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Example data (replace with your actual data)
-X = np.linspace(0, 10, 25)  # Replace with your x coordinates
-Y = np.linspace(0, 5, 120)  # Replace with your y coordinates
-data = np.random.rand(3000, 1)  # Replace with your data values
-
-# Reshape the data and grid coordinates
-Z = data.reshape(len(Y), len(X))
-
-# Set vmin and vmax based on your data
-vmin, vmax = data.min(), data.max()
-
-# Define contour levels based on the data range
-levels = np.linspace(vmin, vmax, 20)  # Adjust the number of levels as needed
-
-# Plot the contour plot with specified levels
-CS = plt.contour(X, Y, Z, levels=levels, cmap="jet", vmin=vmin, vmax=vmax)
-plt.colorbar(CS)
-plt.xlabel('X Coordinate')
-plt.ylabel('Y Coordinate')
-plt.title('Contour Plot of Data')
-plt.show()
+    # %%
+    fshed = 4.72
+    Tshed = 1/fshed
+    fs = 1/0.005
+    print("# of snapshots per shed", Tshed*fs)
