@@ -2,6 +2,8 @@
 """
 @author: Jack
 """
+
+# %%
 import os
 import glob
 import gc
@@ -234,7 +236,7 @@ class DMDAnalysis:
         pattern = os.path.join(self.save_dir, f"2_modeshape_*_*_{name}_*Hz.png")
         self.clean_up_figures(pattern)
         
-        print("plotting modes:", name")
+        print("plotting modes:", name)
         print("Saving to:", self.save_dir)
         for level in range(max_level+1):
             print("level:", level)
@@ -289,7 +291,7 @@ class DMDAnalysis:
         
         pattern = os.path.join(self.save_dir, f"2_modeshape_*_*_{name}_*Hz_phase.png")
         self.clean_up_figures(pattern)
-        print("plotting phases:", name")
+        print("plotting phases:", name)
         print("Saving to:", self.save_dir)
         for level in range(max_level+1):
             print("level:", level)
