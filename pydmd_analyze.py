@@ -223,7 +223,7 @@ class DMDAnalysis:
             os.remove(file)
             # print("removed", file)
 
-    def plot_modes(self, ds_idx, max_level=-1):
+    def plot_modes(self, ds_idx, max_level=-1, plot_negative=False):
         if max_level == -1:
             max_level = self.dmd.max_level
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
@@ -249,16 +249,24 @@ class DMDAnalysis:
                 X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
                 Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
                 Z = abs(pmodes_select)
+                
+                vmin = 0
+                vmax = Z_all.max()
+                cmap="viridis"
+                
+                if plot_negative:
+                    phase = np.angle(pmodes_select)
+                    Z[phase < 0] = -Z[phase < 0]
+                    # Z[phase > np.pi] = -Z[phase > np.pi]
+                    vmin = -vmax
+                    cmap="RdBu"
                 # Z = np.linalg.norm(pmodes_select)
                 
                 freq = np.log(peigs[mode_idx]).imag / (2 * np.pi * self.dt)
                 grow = peigs[mode_idx].real
 
                 fig = plt.figure(figsize=(8, 6))
-                cmap="viridis"
                 ax = plt.subplot(111)
-                vmin = 0
-                vmax = Z_all.max()
                 levels = np.linspace(vmin, vmax, 20)
                 CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
                 colorbar = plt.colorbar(CS)
@@ -279,7 +287,7 @@ class DMDAnalysis:
             plt.close("all")
             gc.collect()
                 
-    def plot_phase(self, ds_idx, max_level=-1):
+    def plot_phase(self, ds_idx, max_level=-1, plot_negative=False):
         if max_level == -1:
             max_level = self.dmd.max_level
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
@@ -304,14 +312,22 @@ class DMDAnalysis:
                 Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
                 Z = np.angle(pmodes_select)
                 
+                vmin = -np.pi
+                vmax = np.pi
+                # cmap="twilight"
+                cmap="hsv"
+                
+                # if plot_negative:
+                #     Z[Z < 0] = -Z[Z < 0]
+                #     Z[Z > np.pi] = Z[Z > np.pi] - np.pi
+                #     cmap="hsv"
+                #     vmin = 0
+                
                 freq = np.log(peigs[mode_idx]).imag / (2 * np.pi * self.dt)
                 grow = peigs[mode_idx].real
 
                 fig = plt.figure(figsize=(8, 6))
-                cmap="twilight"
                 ax = plt.subplot(111)
-                vmin = -np.pi
-                vmax = np.pi
                 levels = np.linspace(vmin, vmax, 20)
                 CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
                 colorbar = plt.colorbar(CS)
@@ -332,10 +348,10 @@ class DMDAnalysis:
             plt.close("all")
             gc.collect()
                 
-    def plot_all_ds(self, max_level=-1):
+    def plot_all_ds(self, max_level=-1, plot_negative=False):
         for ds_idx in self.ds_idx_to_trainX_idx.keys():
-            self.plot_modes(ds_idx, max_level)
-            self.plot_phase(ds_idx, max_level)
+            self.plot_modes(ds_idx, max_level, plot_negative=plot_negative)
+            self.plot_phase(ds_idx, max_level, plot_negative=False)
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED"
@@ -367,7 +383,7 @@ if __name__ == "__main__":
 
     analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
     analysis.plot_dynamics()
-    analysis.plot_all_ds()
+    analysis.plot_all_ds(plot_negative=True)
 
 
     # %%
