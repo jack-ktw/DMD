@@ -33,6 +33,8 @@ class Dataset:
         data = np.loadtxt(path, skiprows=1, delimiter=",")
         self.time_array = data[:, 0]
         self.data_array = data[:, 1:]
+        print(f"Data shape: {self.data_array.shape}")
+
     
     def load_coords(self, path):
         self.coords_array = np.loadtxt(path, skiprows=1, delimiter=",")[:, [1, 2, 3]]
@@ -177,13 +179,22 @@ class DMDAnalysis:
         for idx in idx_li:
             fig_name = f"timeseries_{idx}"
             plt.figure(figsize=(12, 8))
+            
+            cumulative_error = np.sum((pdata[idx, :] - self.train_X[:, idx])**2)
+    
             plt.plot(pdata[idx, :], alpha=0.7, label=f"DMD")
             plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
-            # plt.ylim([-1.1, 1.1])
+    
+            plt.text(0.5, 0.02, f'Cumulative Error: {cumulative_error:.2f}',
+                     horizontalalignment='center',
+                     verticalalignment='center',
+                     transform=plt.gca().transAxes)
+    
             plt.legend()
             plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
+
             
     def plot_dynamics(self, max_level=-1):
         pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
@@ -354,16 +365,15 @@ class DMDAnalysis:
             self.plot_phase(ds_idx, max_level, plot_negative=False)
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED"
-    save_dir = r"C:\Users\Jack\offline\MrDMD"
+    data_dir = r"C:\Users\jason\OneDrive\桌面\Research\UofT\DMD_Data\SHARED"
+    save_dir = r"C:\Users\jason\OneDrive\桌面\Research\UofT\DMD_Data\SHARED"
 
     max_level = 6
     max_cycles = 4
     svd_rank = -1
     tikhonov_regularization = 1e-7
             
-    analysis = DMDAnalysis(data_dir, save_dir, 
-                        max_level, max_cycles, svd_rank, tikhonov_regularization)
+    analysis = DMDAnalysis(data_dir, save_dir, max_level, max_cycles, svd_rank, tikhonov_regularization)
     analysis.make_save_dir()
 
     names = ["U", "V", "W", "p", "building_p"]
