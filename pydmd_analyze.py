@@ -10,6 +10,7 @@ import gc
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
@@ -570,15 +571,52 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             self.plot_modes(ds_idx, plot_negative=plot_negative)
             self.plot_phase(ds_idx, plot_negative=False)
             
+    def plot_amplitude_frequency(self):
+        pattern = os.path.join(self.save_dir, "amplitude_frequency.png")
+        self.clean_up_figures(pattern)
+        
+        mode_frequencies = self.dmd.frequency
+        mode_amplitudes = self.dmd.amplitudes
+        mode_order = np.argsort(-np.abs(mode_amplitudes))
+        
+        # Plot the amplitude vs frequency for each mode
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for i in range(len(mode_frequencies)):
+            frequency = mode_frequencies[mode_order[i]]
+            if frequency > 0:  # Exclude negative frequencies
+                sc = ax.scatter(frequency / (2 * np.pi * 0.002),
+                                np.abs(mode_amplitudes[mode_order[i]]),
+                                c=i+1, cmap='viridis', vmin=0, vmax=200, label=f"Mode {i+1}", s=50)
+                ax.text(frequency / (2 * np.pi * 0.002),
+                        np.abs(mode_amplitudes[mode_order[i]]),
+                        str(i+1), ha='right', va='bottom')
+        
+        # Set the plot title and axis labels
+        ax.set_title("DMD Mode Amplitudes vs Frequencies")
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Amplitude")
+        ax.set_xlim(0)
+        
+        # Add a colorbar to the plot
+        norm = mcolors.Normalize(vmin=0, vmax=200)
+        cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), ax=ax)
+        cbar.set_label("Mode Number")
+        
+        plt.savefig(os.path.join(self.save_dir, "amplitude_frequency.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+            
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\data"
-    save_dir = r"D:\Python Files\Research - DMD\HankelDMD"
+    data_dir = r"C:\Users\Keith\Documents\Research\data"
+    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 600
+    svd_rank = 200
     tikhonov_regularization = 1e-7
-    delay_length = 1
+    delay_length = 15
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
@@ -587,8 +625,8 @@ if __name__ == "__main__":
     relative_paths = [r"left_region/ux.csv", r"left_region/uy.csv", r"left_region\uz.csv", r"left_region\p.csv", r"building_p.csv"]
     coords_relative_paths = [r"left_region/coords.csv", -1, -1, -1, r"building_coords_flat.csv"]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=800, i1=3000, i2=6000, ds_indices=[0, 1, 2, 3])
-    analysis.trim_datasets(t1=0, t2=800, ds_indices=[4])
+    analysis.trim_datasets(t1=0, t2=400, i1=3000, i2=6000, ds_indices=[0, 1, 2, 3])
+    analysis.trim_datasets(t1=0, t2=400, ds_indices=[4])
     analysis.filter_datasets(x_upper=0.05, ds_indices=[0, 1, 2, 3])
     analysis.demean_datasets()
     analysis.normalize_datasets()
@@ -600,6 +638,7 @@ if __name__ == "__main__":
     analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
+    analysis.plot_amplitude_frequency()
 
     # %%
 
