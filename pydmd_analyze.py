@@ -577,19 +577,18 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         mode_frequencies = self.dmd.frequency
         mode_amplitudes = self.dmd.amplitudes
-        mode_order = np.argsort(-np.abs(mode_amplitudes))
         
         # Plot the amplitude vs frequency for each mode
         fig, ax = plt.subplots(figsize=(8, 6))
         for i in range(len(mode_frequencies)):
-            frequency = mode_frequencies[mode_order[i]]
+            frequency = mode_frequencies[i]
             if frequency > 0:  # Exclude negative frequencies
-                sc = ax.scatter(frequency / (2 * np.pi * 0.002),
-                                np.abs(mode_amplitudes[mode_order[i]]),
+                sc = ax.scatter(frequency / (2 * np.pi * self.dt),
+                                np.abs(mode_amplitudes[i]),
                                 c=i+1, cmap='viridis', vmin=0, vmax=200, label=f"Mode {i+1}", s=50)
-                ax.text(frequency / (2 * np.pi * 0.002),
-                        np.abs(mode_amplitudes[mode_order[i]]),
-                        str(i+1), ha='right', va='bottom')
+                ax.text(frequency / (2 * np.pi * self.dt),
+                        np.abs(mode_amplitudes[i]),
+                        str(i), ha='right', va='bottom')
         
         # Set the plot title and axis labels
         ax.set_title("DMD Mode Amplitudes vs Frequencies")
@@ -598,7 +597,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         ax.set_xlim(0)
         
         # Add a colorbar to the plot
-        norm = mcolors.Normalize(vmin=0, vmax=200)
+        norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
         cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), ax=ax)
         cbar.set_label("Mode Number")
         
@@ -610,13 +609,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\Research\data"
-    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD"
+    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short400"
 
     max_level = 6
     max_cycles = 4
     svd_rank = 200
     tikhonov_regularization = 1e-7
-    delay_length = 15
+    delay_length = 25
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
