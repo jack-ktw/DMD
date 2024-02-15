@@ -79,6 +79,7 @@ class Dataset:
         self.scaler.fit(flattened_data)
         flattened_data = self.scaler.transform(flattened_data)
         self.data_array = flattened_data.reshape(original_shape)
+    
 
 class DMDAnalysisBase:
     def __init__(self, data_dir=".", save_dir="dmd_output",
@@ -394,6 +395,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                  delay_length=1) -> None:
         super().__init__(data_dir=data_dir, save_dir=save_dir, svd_rank=svd_rank)
         self.delay_length = delay_length
+        self.scalers = []  # Initialize the scalers attribute
                     
     def fit(self, ds_indices=None):
         print(self.svd_rank)
@@ -575,7 +577,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         pattern = os.path.join(self.save_dir, "amplitude_frequency.png")
         self.clean_up_figures(pattern)
         
-        mode_frequencies = self.dmd.frequency
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
         mode_amplitudes = self.dmd.amplitudes
         
         # Plot the amplitude vs frequency for each mode
@@ -583,10 +585,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         for i in range(len(mode_frequencies)):
             frequency = mode_frequencies[i]
             if frequency > 0:  # Exclude negative frequencies
-                sc = ax.scatter(frequency / (2 * np.pi * self.dt),
+                sc = ax.scatter(frequency,
                                 np.abs(mode_amplitudes[i]),
                                 c=i+1, cmap='viridis', vmin=0, vmax=200, label=f"Mode {i+1}", s=50)
-                ax.text(frequency / (2 * np.pi * self.dt),
+                ax.text(frequency,
                         np.abs(mode_amplitudes[i]),
                         str(i), ha='right', va='bottom')
         
@@ -606,10 +608,27 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         plt.clf()
         plt.close("all")
         gc.collect()
+    
+    def normalize_datasets(self, ds_indices=None):
+        if ds_indices is None:
+            ds_indices = range(len(self.datasets))
+        for i in ds_indices:
+            self.datasets[i].normalize_data()
+            self.scalers.append(self.datasets[i].scaler)  # Store the scaler for each dataset
+
+    def denormalize_modes(self):
+        if not hasattr(self, 'scalers'):
+            raise ValueError("Scalers have not been initialized. Please normalize the datasets first.")
+        original_shape = self.dmd.modes.shape
+        flattened_modes = self.dmd.modes.flatten().reshape(-1, 1)
+        denormalized_modes = flattened_modes.copy()  # Create a copy to avoid modifying the original modes
+        for scaler in self.scalers:
+            denormalized_modes = scaler.inverse_transform(denormalized_modes)
+        self.dmd.modes = denormalized_modes.reshape(original_shape)
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\Research\data"
-    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short400"
+    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short100_update"
 
     max_level = 6
     max_cycles = 4
@@ -624,8 +643,8 @@ if __name__ == "__main__":
     relative_paths = [r"left_region/ux.csv", r"left_region/uy.csv", r"left_region\uz.csv", r"left_region\p.csv", r"building_p.csv"]
     coords_relative_paths = [r"left_region/coords.csv", -1, -1, -1, r"building_coords_flat.csv"]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=400, i1=3000, i2=6000, ds_indices=[0, 1, 2, 3])
-    analysis.trim_datasets(t1=0, t2=400, ds_indices=[4])
+    analysis.trim_datasets(t1=0, t2=100, i1=3000, i2=6000, ds_indices=[0, 1, 2, 3])
+    analysis.trim_datasets(t1=0, t2=100, ds_indices=[4])
     analysis.filter_datasets(x_upper=0.05, ds_indices=[0, 1, 2, 3])
     analysis.demean_datasets()
     analysis.normalize_datasets()
@@ -633,6 +652,7 @@ if __name__ == "__main__":
     analysis.fit(ds_indices=[0, 1, 4])
     analysis.save_dmd()
     # analysis.load_dmd()
+    analysis.denormalize_modes()
 
     analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
     analysis.plot_dynamics()
