@@ -26,7 +26,7 @@ class Dataset:
         self.data_array = np.empty((0,1))
         self.time_array = np.empty((0,1))
         self.name = name
-        self.scalers = None
+        self.scaler = preprocessing.RobustScaler()
         self.is_building = is_building
         
     def load_data(self, path):
@@ -74,25 +74,11 @@ class Dataset:
         self.data_array = self.data_array - self.data_mean
 
     def normalize_data(self):
-        # Separate real and imaginary parts
-        real_part = self.data_array.real
-        imag_part = self.data_array.imag
-        
-        # Normalize real and imaginary parts separately
-        real_scaler = preprocessing.RobustScaler()
-        imag_scaler = preprocessing.RobustScaler()
-        
-        real_scaler.fit(real_part)
-        imag_scaler.fit(imag_part)
-        
-        real_normalized = real_scaler.transform(real_part)
-        imag_normalized = imag_scaler.transform(imag_part)
-        
-        # Combine back into complex-valued data
-        normalized_data = real_normalized + 1j * imag_normalized
-        
-        self.data_array = normalized_data
-        self.scalers = (real_scaler, imag_scaler)  # Store the scalers for inverse transformation
+        original_shape = self.data_array.shape
+        flattened_data = self.data_array.flatten().reshape(-1, 1)
+        self.scaler.fit(flattened_data)
+        flattened_data = self.scaler.transform(flattened_data)
+        self.data_array = flattened_data.reshape(original_shape)
     
 
 class DMDAnalysisBase:
@@ -626,30 +612,19 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     def normalize_datasets(self, ds_indices=None):
         if ds_indices is None:
             ds_indices = range(len(self.datasets))
-        
-        self.scalers = []  # Reset the scalers list
         for i in ds_indices:
             self.datasets[i].normalize_data()
-            self.scalers.append(self.datasets[i].scalers)  # Store the scaler for each dataset
+            self.scalers.append(self.datasets[i].scaler)  # Store the scaler for each dataset
 
     def denormalize_modes(self):
         if not hasattr(self, 'scalers'):
             raise ValueError("Scalers have not been initialized. Please normalize the datasets first.")
-        print(self.scalers)
-        real_scaler, imag_scaler = self.scalers
-        
-        # Separate real and imaginary parts
-        real_normalized = self.dmd.modes.real
-        imag_normalized = self.dmd.modes.imag
-        
-        # Apply inverse transformation to real and imaginary parts separately
-        real_denormalized = real_scaler.inverse_transform(real_normalized)
-        imag_denormalized = imag_scaler.inverse_transform(imag_normalized)
-        
-        # Combine back into complex-valued data
-        denormalized_modes = real_denormalized + 1j * imag_denormalized
-        
-        self.dmd.modes = denormalized_modes
+        original_shape = self.dmd.modes.shape
+        flattened_modes = self.dmd.modes.flatten().reshape(-1, 1)
+        denormalized_modes = flattened_modes.copy()  # Create a copy to avoid modifying the original modes
+        for scaler in self.scalers:
+            denormalized_modes = scaler.inverse_transform(denormalized_modes)
+        self.dmd.modes = denormalized_modes.reshape(original_shape)
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\Research\data"
@@ -672,7 +647,7 @@ if __name__ == "__main__":
     analysis.trim_datasets(t1=0, t2=100, ds_indices=[4])
     analysis.filter_datasets(x_upper=0.05, ds_indices=[0, 1, 2, 3])
     analysis.demean_datasets()
-    analysis.normalize_datasets(ds_indices=[0, 1, 4])
+    analysis.normalize_datasets()
     #analysis.compose_data(ds_indices=[0, 1, 4])
     analysis.fit(ds_indices=[0, 1, 4])
     analysis.save_dmd()
