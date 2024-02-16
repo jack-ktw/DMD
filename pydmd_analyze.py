@@ -395,7 +395,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                  delay_length=1) -> None:
         super().__init__(data_dir=data_dir, save_dir=save_dir, svd_rank=svd_rank)
         self.delay_length = delay_length
-        self.scalers = []  # Initialize the scalers attribute
                     
     def fit(self, ds_indices=None):
         print(self.svd_rank)
@@ -608,23 +607,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         plt.clf()
         plt.close("all")
         gc.collect()
-    
-    def normalize_datasets(self, ds_indices=None):
-        if ds_indices is None:
-            ds_indices = range(len(self.datasets))
-        for i in ds_indices:
-            self.datasets[i].normalize_data()
-            self.scalers.append(self.datasets[i].scaler)  # Store the scaler for each dataset
-
-    def denormalize_modes(self):
-        if not hasattr(self, 'scalers'):
-            raise ValueError("Scalers have not been initialized. Please normalize the datasets first.")
-        original_shape = self.dmd.modes.shape
-        flattened_modes = self.dmd.modes.flatten().reshape(-1, 1)
-        denormalized_modes = flattened_modes.copy()  # Create a copy to avoid modifying the original modes
-        for scaler in self.scalers:
-            denormalized_modes = scaler.inverse_transform(denormalized_modes)
-        self.dmd.modes = denormalized_modes.reshape(original_shape)
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\Research\data"
@@ -652,7 +634,6 @@ if __name__ == "__main__":
     analysis.fit(ds_indices=[0, 1, 4])
     analysis.save_dmd()
     # analysis.load_dmd()
-    analysis.denormalize_modes()
 
     analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
     analysis.plot_dynamics()
