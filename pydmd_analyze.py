@@ -178,6 +178,7 @@ class DMDAnalysisBase:
         print("cleaning up", pattern)
         for file in matching_files:
             os.remove(file)
+    
             
 class MrDMDAnalysis(DMDAnalysisBase):
     def __init__(self, data_dir=".", save_dir="dmd_output",
@@ -422,8 +423,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         print("plotting dynamics:")
         print("Saving to:", self.save_dir)
-        modes = self.dmd.modes
-        dyna = self.dmd.dynamics
+        modes = self.get_original_modes()
+        dyna = self.get_original_dynamics()
         t = self.datasets[0].time_array
 
         fig_name = "dynamics"
@@ -463,7 +464,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         print("plotting modes:", name)
         print("Saving to:", self.save_dir)
-        modes = self.dmd.modes
+        modes = self.get_original_modes()
         eigs = self.dmd.eigs
             
         for mode_idx in range(modes.shape[1]):
@@ -522,7 +523,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         self.clean_up_figures(pattern)
         print("plotting phases:", name)
         print("Saving to:", self.save_dir)
-        modes = self.dmd.modes
+        modes = self.get_original_modes()
         eigs = self.dmd.eigs
         
         for mode_idx in range(modes.shape[1]):
@@ -607,16 +608,33 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         plt.clf()
         plt.close("all")
         gc.collect()
+        
+    def get_original_modes(self):      
+        return self.dmd.modes[:self.dmd.modes.shape[0] // self.delay_length,:]
+    
+    def get_original_dynamics(self):      
+        return self.dmd.dynamics[:self.dmd.dynamics.shape[0] // self.delay_length,:]
+    
+    def get_denormalized_modes(self):
+        modes = self.get_original_modes()
+        
+        for ds_idx in self.ds_idx_to_trainX_idx:
+            start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
+            print(self.ds_idx_to_trainX_idx)
+            modes[start_i:end_i] *= self.datasets[ds_idx].scaler.scale_
+        
+        return modes
+        
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\Research\data"
-    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short100_update"
+    data_dir = r"D:\Python Files\Research - DMD\data"
+    save_dir = r"D:\Python Files\Research - DMD\HankelDMD_short100_update"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 200
+    svd_rank = 10
     tikhonov_regularization = 1e-7
-    delay_length = 25
+    delay_length = 2
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
