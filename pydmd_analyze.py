@@ -424,7 +424,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         print("plotting dynamics:")
         print("Saving to:", self.save_dir)
         modes = self.get_original_modes()
-        dyna = self.get_original_dynamics()
+        dyna = self.dmd.dynamics
         t = self.datasets[0].time_array
 
         fig_name = "dynamics"
@@ -612,9 +612,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     def get_original_modes(self):      
         return self.dmd.modes[:self.dmd.modes.shape[0] // self.delay_length,:]
     
-    def get_original_dynamics(self):      
-        return self.dmd.dynamics[:self.dmd.dynamics.shape[0] // self.delay_length,:]
-    
     def get_denormalized_modes(self):
         modes = self.get_original_modes()
         
@@ -627,8 +624,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\data"
-    save_dir = r"D:\Python Files\Research - DMD\HankelDMD_short100_update"
+    data_dir = r"C:\Users\Keith\Documents\Research\data"
+    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short100_update"
 
     max_level = 6
     max_cycles = 4
@@ -657,6 +654,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
+    analysis.dmd.modes.shape
 
     # %%
 
