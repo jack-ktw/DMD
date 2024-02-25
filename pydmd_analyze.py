@@ -4,6 +4,7 @@
 """
 
 # %%
+import pickle
 import os
 import glob
 import gc
@@ -273,6 +274,21 @@ class MrDMDAnalysis(DMDAnalysisBase):
             plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
+
+            save_directory = r"C:\Users\jason\OneDrive\桌面\Research\UofT\DMD_Data\SHARED\Reconstruction"
+            original_data = self.train_X
+            reconstructed_data = self.dmd.reconstructed_data
+
+            original_data_path = os.path.join(save_directory, 'original_data.pkl')
+            reconstructed_data_path = os.path.join(save_directory, 'reconstructed_data.pkl')
+            # Save the original data
+            with open(original_data_path, 'wb') as f:
+                pickle.dump(original_data, f)
+
+            # Save the reconstructed data
+            with open(reconstructed_data_path, 'wb') as f:
+                pickle.dump(reconstructed_data, f)
+
 
             
     def plot_dynamics(self, max_level=-1):
