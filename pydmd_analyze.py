@@ -36,6 +36,8 @@ class Dataset:
         data = np.loadtxt(path, skiprows=1, delimiter=",", max_rows=max_rows)
         self.time_array = data[:, 0]
         self.data_array = data[:, 1:]
+        print(f"Data shape: {self.data_array.shape}")
+
     
     def load_coords(self, path):
         self.coords_array = np.loadtxt(path, skiprows=1, delimiter=",")[:, [1, 2, 3]]
@@ -228,9 +230,17 @@ class DMDAnalysis:
         for idx in idx_li:
             fig_name = f"timeseries_{idx}"
             plt.figure(figsize=(12, 8))
+            
+            cumulative_error = np.sum((pdata[idx, :] - self.train_X[:, idx])**2)
+    
             plt.plot(pdata[idx, :], alpha=0.7, label=f"DMD")
             plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
-            # plt.ylim([-1.1, 1.1])
+    
+            plt.text(0.5, 0.02, f'Cumulative Error: {cumulative_error:.2f}',
+                     horizontalalignment='center',
+                     verticalalignment='center',
+                     transform=plt.gca().transAxes)
+    
             plt.legend()
             plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
