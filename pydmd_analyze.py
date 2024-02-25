@@ -10,6 +10,7 @@ import gc
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
@@ -92,8 +93,9 @@ class Dataset:
         print("Mean:", self.scaler.center_)
         print("Scale:", self.scaler.scale_)
         self.data_array = flattened_data.reshape(original_shape)
+    
 
-class DMDAnalysis:
+class DMDAnalysisBase:
     def __init__(self, data_dir=".", save_dir="dmd_output",
                  max_level=4, max_cycles=10, 
                  svd_rank=-1,
@@ -397,6 +399,7 @@ class DMDAnalysis:
         plot_eigs_mrdmd(self.dmd, max_level=max_level)
             
 if __name__ == "__main__":
+<<<<<<< HEAD
     data_dir = r"C:\Users\Jack\OneDrive - University of Toronto\Research\Projects\2023_DMD\SHARED\zian_data"
     save_dir = r"C:\Users\Jack\offline\MrDMD2"
 
@@ -410,6 +413,7 @@ if __name__ == "__main__":
     analysis.make_save_dir()
     analysis.set_building_dimension(B=0.24, D=0.06, H=0.48)
 
+<<<<<<< HEAD
     names = ["U1", "V1", "W1", "p1",
             "U2", "V2", "W2", "p2",
             "U3", "V3", "W3", "p3",
