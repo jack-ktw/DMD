@@ -15,6 +15,7 @@ from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
+import cv2
 
 matplotlib.use('Agg')
 
@@ -621,11 +622,82 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             modes[start_i:end_i] *= self.datasets[ds_idx].scaler.scale_
         
         return modes
+    
+    def get_single_mode_reconstruction(self, mode_index):
+        modes = self.get_original_modes()
+        selected_mode = modes[:, mode_index]
+        selected_dynamics = self.dmd.dynamics[mode_index]
+        return np.outer(selected_mode, selected_dynamics)
+
+    def plot_single_mode_reconstruction(self, ds_idx, mode_index, plot_negative=False):
+        start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
+        coords_array = self.datasets[ds_idx].get_coords()
+        n_i = len(np.unique(coords_array[:, 0]))
+        n_j = len(np.unique(coords_array[:, 1]))
+        name = self.datasets[ds_idx].name
+        is_building = self.datasets[ds_idx].is_building
+        pattern = os.path.join(self.save_dir, f"2_modeshape_*_{name}_*.png")
+        self.clean_up_figures(pattern)
+        
+        print("plotting modes:", name)
+        print("Saving to:", self.save_dir)
+        mode = self.get_single_mode_reconstruction(mode_index)
+        image_list = []   
+        for snapshot in range(mode.shape[1]):
+            Z_all = abs(mode[:, snapshot])
+            mode_select = mode[start_i:end_i, snapshot].reshape(n_j, n_i)
+            X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
+            Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
+            Z = abs(mode_select)
+            
+            vmin = 0
+            vmax = 0.3582
+            cmap="viridis"
+            
+            if plot_negative:
+                phase = np.angle(mode_select)
+                Z[phase < 0] = -Z[phase < 0]
+                # Z[phase > np.pi] = -Z[phase > np.pi]
+                vmin = -vmax
+                cmap="RdBu"
+            # Z = np.linalg.norm(pmodes_select)
+            
+
+            fig = plt.figure(figsize=(8, 6))
+            ax = plt.subplot(111)
+            levels = np.linspace(vmin, vmax, 20)
+            CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
+            colorbar = plt.colorbar(CS)
+            ax.set_title(f"mode:{mode_index}, {name}")
+            ax.set_aspect("equal")
+            
+            if is_building:
+                line_value = 0.5 * 2/3
+                ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
+                ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+            image_list.append(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
+            plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
+            plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
+        video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
+        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        height, width, layers = frame.shape
+        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        for image in image_list:
+            video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        cv2.destroyAllWindows()
+        video.release()
+         
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\Research\data"
-    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short100_update"
+    data_dir = r"D:\Python Files\Research - DMD\data"
+    save_dir = r"D:\Python Files\Research - DMD\HankelDMD_short100_update"
 
     max_level = 6
     max_cycles = 4
@@ -654,7 +726,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.dmd.modes.shape
+    analysis.plot_single_mode_reconstruction(0, 0)
 
     # %%
 
