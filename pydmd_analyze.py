@@ -15,7 +15,7 @@ from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
-import cv2
+#import cv2
 
 matplotlib.use('Agg')
 
@@ -648,18 +648,18 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             mode_select = mode[start_i:end_i, snapshot].reshape(n_j, n_i)
             X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
             Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
-            Z = abs(mode_select)
+            Z = 2 * mode_select.real
             
-            vmin = 0
-            vmax = 0.3582
+            vmin = -1
+            vmax = 1
             cmap="viridis"
             
-            if plot_negative:
-                phase = np.angle(mode_select)
-                Z[phase < 0] = -Z[phase < 0]
-                # Z[phase > np.pi] = -Z[phase > np.pi]
-                vmin = -vmax
-                cmap="RdBu"
+ #           if plot_negative:
+  #              phase = np.angle(mode_select)
+   #             Z[phase < 0] = -Z[phase < 0]
+    #            # Z[phase > np.pi] = -Z[phase > np.pi]
+     #           vmin = -vmax
+      #          cmap="RdBu"
             # Z = np.linalg.norm(pmodes_select)
             
 
@@ -684,26 +684,26 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.clf()
             plt.close("all")
             gc.collect()
-        video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
-        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-        height, width, layers = frame.shape
-        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-        for image in image_list:
-            video.write(cv2.imread(os.path.join(self.save_dir, image)))
-        cv2.destroyAllWindows()
-        video.release()
+       # video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
+       # frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+       # height, width, layers = frame.shape
+       # video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+       # for image in image_list:
+       #     video.write(cv2.imread(os.path.join(self.save_dir, image)))
+       # cv2.destroyAllWindows()
+       # video.release()
          
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\data"
-    save_dir = r"D:\Python Files\Research - DMD\HankelDMD_short100_update"
+    data_dir = r"C:\Users\Keith\Documents\Research\data"
+    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short100_update"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 10
+    svd_rank = 0.9
     tikhonov_regularization = 1e-7
-    delay_length = 2
+    delay_length = 25
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
@@ -726,7 +726,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_single_mode_reconstruction(0, 0)
+    #analysis.plot_single_mode_reconstruction(0, 4)
 
     # %%
 
