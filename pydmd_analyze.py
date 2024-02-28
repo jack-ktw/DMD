@@ -696,8 +696,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\Research\data"
-    save_dir = r"C:\Users\Keith\Documents\Research\HankelDMD_short100_update"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD"
 
     max_level = 6
     max_cycles = 4
@@ -707,18 +707,17 @@ if __name__ == "__main__":
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["U", "V", "W", "p", "building_p"]
-    is_building_li = [False, False, False, False, True]
-    relative_paths = [r"left_region/ux.csv", r"left_region/uy.csv", r"left_region\uz.csv", r"left_region\p.csv", r"building_p.csv"]
-    coords_relative_paths = [r"left_region/coords.csv", -1, -1, -1, r"building_coords_flat.csv"]
+    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
+    is_building_li = [False, False, False, False, False, False, False, False, False]
+    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
+    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=100, i1=3000, i2=6000, ds_indices=[0, 1, 2, 3])
-    analysis.trim_datasets(t1=0, t2=100, ds_indices=[4])
-    analysis.filter_datasets(x_upper=0.05, ds_indices=[0, 1, 2, 3])
+    analysis.trim_datasets(t1=0, t2=400, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
     analysis.normalize_datasets()
     #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0, 1, 4])
+    analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.save_dmd()
     # analysis.load_dmd()
 
