@@ -15,7 +15,7 @@ from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
-#import cv2
+import cv2
 
 matplotlib.use('Agg')
 
@@ -684,14 +684,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.clf()
             plt.close("all")
             gc.collect()
-       # video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
-       # frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-       # height, width, layers = frame.shape
-       # video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-       # for image in image_list:
-       #     video.write(cv2.imread(os.path.join(self.save_dir, image)))
-       # cv2.destroyAllWindows()
-       # video.release()
+        video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
+        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        height, width, layers = frame.shape
+        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        for image in image_list:
+            video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        cv2.destroyAllWindows()
+        video.release()
          
         
             
@@ -725,7 +725,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    #analysis.plot_single_mode_reconstruction(0, 4)
+    analysis.plot_single_mode_reconstruction(0, 10)
 
     # %%
 
