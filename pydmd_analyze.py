@@ -15,7 +15,8 @@ from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
-import cv2
+import time
+from scipy.interpolate import griddata
 
 matplotlib.use('Agg')
 
@@ -694,7 +695,53 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         cv2.destroyAllWindows()
         video.release()
 
-    def plot_multiple_mode_reconstruction(self, ds_idx, mode_index, plot_negative=False):
+    def plot_reconstructed_streamplot(self, u_ds_idx, v_ds_idx, mode_index):
+        u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
+        V_start_i, v_end_i = self.ds_idx_to_trainX_idx[v_ds_idx]
+        coords_array = self.datasets[u_ds_idx].get_coords()
+        n_i = len(np.unique(coords_array[:, 0]))
+        n_j = len(np.unique(coords_array[:, 1]))
+        name = self.datasets[u_ds_idx].name
+        is_building = self.datasets[u_ds_idx].is_building
+        pattern = os.path.join(self.save_dir, f"2_streamplot_*_{name}_*.png")
+        self.clean_up_figures(pattern)
+        
+        print("plotting streamplot:", name, mode_index)
+        print("Saving to:", self.save_dir)
+        mode = self.get_single_mode_reconstruction(mode_index)
+        image_list = []
+        for snapshot in range(mode.shape[1]):
+            Z_all = abs(mode[:, snapshot])
+            x = np.unique(coords_array[:, 0])
+            y = np.unique(coords_array[:, 1])  
+            U = 2 * mode[u_start_i:u_end_i, snapshot].reshape(n_j, n_i).real
+            V = 2 * mode[u_start_i:u_end_i, snapshot].reshape(n_j, n_i).real
+            x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100),
+                              np.linspace(y.min(), y.max(), 100))
+            u_interp = griddata((coords_array[:, 0], coords_array[:, 1]), U.ravel(), (x_grid, y_grid), method='cubic')
+            v_interp = griddata((coords_array[:, 0], coords_array[:, 1]), V.ravel(), (x_grid, y_grid), method='cubic')
+            plt.streamplot(x_grid, y_grid, u_interp, v_interp, density=[0.5, 1])
+            fig = plt.figure(figsize=(8, 6))
+            ax = plt.subplot(111)
+            ax.set_title(f"mode:{mode_index}, {name}")
+            ax.set_aspect("equal")
+            image_list.append(os.path.join(save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png"))
+            plt.savefig(os.path.join(save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png"))
+            plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
+        #video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
+        #frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        #height, width, layers = frame.shape
+        #video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        #for image in image_list:
+        #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        #cv2.destroyAllWindows()
+        #video.release()
+
+    def plot_multiple_mode_reconstruction(self, ds_idx, mode_indices, plot_negative=False):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
         coords_array = self.datasets[ds_idx].get_coords()
         n_i = len(np.unique(coords_array[:, 0]))
@@ -704,16 +751,18 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         pattern = os.path.join(self.save_dir, f"2_modeshape_*_{name}_*.png")
         self.clean_up_figures(pattern)
         
-        print("plotting mode:", name, mode_index)
+        print("plotting modes:", name, mode_indices)
         print("Saving to:", self.save_dir)
-        mode = self.get_single_mode_reconstruction(mode_index)
+        summed_mode = np.empty(self.get_single_mode_reconstruction(mode_indices[0]).shape, dtype=complex)
+        for idx in mode_indices:
+            summed_mode += self.get_single_mode_reconstruction(idx)
         image_list = []
-        vmax = 2 * np.max(np.abs(mode[start_i:end_i, :].real))
+        vmax = 2 * np.max(np.abs(summed_mode[start_i:end_i, :].real))
         vmin = -vmax
         print("vmax: ", vmax)
-        for snapshot in range(mode.shape[1]):
-            Z_all = abs(mode[:, snapshot])
-            mode_select = mode[start_i:end_i, snapshot].reshape(n_j, n_i)
+        for snapshot in range(summed_mode.shape[1]):
+            Z_all = abs(summed_mode[:, snapshot])
+            mode_select = summed_mode[start_i:end_i, snapshot].reshape(n_j, n_i)
             X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
             Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
             Z = 2 * mode_select.real
@@ -734,7 +783,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             levels = np.linspace(vmin, vmax, 20)
             CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
             colorbar = plt.colorbar(CS)
-            ax.set_title(f"mode:{mode_index}, {name}")
+            ax.set_title(f"modes:{mode_indices}, {name}")
             ax.set_aspect("equal")
             
             if is_building:
@@ -743,28 +792,28 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                 ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
                 ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
                 ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
-            image_list.append(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
-            plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
+            image_list.append(os.path.join(save_dir, f"2_modeshape_{mode_indices}_{name}_{snapshot}.png"))
+            plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_indices}_{name}_{snapshot}.png"))
             plt.close(fig)
             plt.cla()
             plt.clf()
             plt.close("all")
             gc.collect()
-        video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
-        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-        height, width, layers = frame.shape
-        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-        for image in image_list:
-            video.write(cv2.imread(os.path.join(self.save_dir, image)))
-        cv2.destroyAllWindows()
-        video.release()
+        video_name = os.path.join(self.save_dir, f"mode_{mode_indices}_{name}.avi")
+        #frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        #height, width, layers = frame.shape
+        #video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        #for image in image_list:
+        #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
+       # cv2.destroyAllWindows()
+        #video.release()
         
          
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data"
-    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD"
 
     max_level = 6
     max_cycles = 4
@@ -792,7 +841,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_single_mode_reconstruction(1, 0)
+    analysis.plot_multiple_mode_reconstruction(0, [14,16])
 
     # %%
 
