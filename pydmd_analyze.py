@@ -443,7 +443,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         self.dmd.save(os.path.join(self.save_dir, "dmd.pkl"))
         
     def load_dmd(self):
-        self.dmd = MrDMD.load(os.path.join(self.save_dir, "dmd.pkl"))
+        self.dmd = HankelDMD.load(os.path.join(self.save_dir, "dmd.pkl"))
             
     def clean_up_figures(self, pattern):
         matching_files = glob.glob(pattern)
@@ -639,10 +639,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         pattern = os.path.join(self.save_dir, f"2_modeshape_*_{name}_*.png")
         self.clean_up_figures(pattern)
         
-        print("plotting modes:", name)
+        print("plotting mode:", name, mode_index)
         print("Saving to:", self.save_dir)
         mode = self.get_single_mode_reconstruction(mode_index)
-        image_list = []   
+        image_list = []
+        vmax = 2 * np.max(np.abs(mode[start_i:end_i, :].real))
+        vmin = -vmax
+        print("vmax: ", vmax)
         for snapshot in range(mode.shape[1]):
             Z_all = abs(mode[:, snapshot])
             mode_select = mode[start_i:end_i, snapshot].reshape(n_j, n_i)
@@ -650,8 +653,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
             Z = 2 * mode_select.real
             
-            vmin = -1
-            vmax = 1
             cmap="viridis"
             
  #           if plot_negative:
@@ -692,18 +693,84 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             video.write(cv2.imread(os.path.join(self.save_dir, image)))
         cv2.destroyAllWindows()
         video.release()
+
+    def plot_multiple_mode_reconstruction(self, ds_idx, mode_index, plot_negative=False):
+        start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
+        coords_array = self.datasets[ds_idx].get_coords()
+        n_i = len(np.unique(coords_array[:, 0]))
+        n_j = len(np.unique(coords_array[:, 1]))
+        name = self.datasets[ds_idx].name
+        is_building = self.datasets[ds_idx].is_building
+        pattern = os.path.join(self.save_dir, f"2_modeshape_*_{name}_*.png")
+        self.clean_up_figures(pattern)
+        
+        print("plotting mode:", name, mode_index)
+        print("Saving to:", self.save_dir)
+        mode = self.get_single_mode_reconstruction(mode_index)
+        image_list = []
+        vmax = 2 * np.max(np.abs(mode[start_i:end_i, :].real))
+        vmin = -vmax
+        print("vmax: ", vmax)
+        for snapshot in range(mode.shape[1]):
+            Z_all = abs(mode[:, snapshot])
+            mode_select = mode[start_i:end_i, snapshot].reshape(n_j, n_i)
+            X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
+            Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
+            Z = 2 * mode_select.real
+            
+            cmap="viridis"
+            
+ #           if plot_negative:
+  #              phase = np.angle(mode_select)
+   #             Z[phase < 0] = -Z[phase < 0]
+    #            # Z[phase > np.pi] = -Z[phase > np.pi]
+     #           vmin = -vmax
+      #          cmap="RdBu"
+            # Z = np.linalg.norm(pmodes_select)
+            
+
+            fig = plt.figure(figsize=(8, 6))
+            ax = plt.subplot(111)
+            levels = np.linspace(vmin, vmax, 20)
+            CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
+            colorbar = plt.colorbar(CS)
+            ax.set_title(f"mode:{mode_index}, {name}")
+            ax.set_aspect("equal")
+            
+            if is_building:
+                line_value = 0.5 * 2/3
+                ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
+                ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+            image_list.append(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
+            plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
+            plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
+        video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
+        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        height, width, layers = frame.shape
+        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        for image in image_list:
+            video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        cv2.destroyAllWindows()
+        video.release()
+        
          
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD"
+    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data"
+    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.9
+    svd_rank = 0.99
     tikhonov_regularization = 1e-7
-    delay_length = 25
+    delay_length = 45
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
@@ -712,20 +779,20 @@ if __name__ == "__main__":
     relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
     coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=400, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    analysis.trim_datasets(t1=0, t2=100, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
     analysis.normalize_datasets()
     #analysis.compose_data(ds_indices=[0, 1, 4])
     analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.save_dmd()
-    # analysis.load_dmd()
+    #analysis.load_dmd()
 
     analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_single_mode_reconstruction(0, 10)
+    analysis.plot_single_mode_reconstruction(1, 0)
 
     # %%
 
