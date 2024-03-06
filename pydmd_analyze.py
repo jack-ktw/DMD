@@ -687,13 +687,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
         video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
-        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-        height, width, layers = frame.shape
-        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-        for image in image_list:
-            video.write(cv2.imread(os.path.join(self.save_dir, image)))
-        cv2.destroyAllWindows()
-        video.release()
+        #frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        #height, width, layers = frame.shape
+        #video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        #for image in image_list:
+        #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        #cv2.destroyAllWindows()
+        #video.release()
 
     def plot_reconstructed_streamplot(self, u_ds_idx, v_ds_idx, mode_index):
         u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
@@ -807,6 +807,27 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
        # cv2.destroyAllWindows()
         #video.release()
+    
+    def phase_averaging(self, mode_idx):
+        
+        frequency = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        mode = self.get_single_mode_reconstruction(mode_idx)
+        # Calculate number of timesteps per cycle
+        timesteps_per_cycle = int(1 / frequency / self.dt)
+        
+        
+        # Calculate number of complete cycles
+        num_cycles = mode.shape[1] // timesteps_per_cycle
+        
+        # Reshape data into cycles
+        mode_cycles = np.reshape(mode[:, :num_cycles*timesteps_per_cycle], (mode.shape[0], num_cycles, timesteps_per_cycle))
+        
+        # Average across timesteps in each cycle
+        averaged_mode = np.mean(mode_cycles, axis=2)
+        
+        return averaged_mode
+    
+
         
          
         
@@ -841,7 +862,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_multiple_mode_reconstruction(0, [14,16])
+    analysis.plot_multiple_mode_reconstruction(1, [14,16])
 
     # %%
 
