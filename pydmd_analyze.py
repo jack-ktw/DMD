@@ -642,7 +642,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         print("plotting mode:", name, mode_index)
         print("Saving to:", self.save_dir)
-        mode = self.get_single_mode_reconstruction(mode_index)
+        mode = self.phase_averaging(mode_index)
         image_list = []
         vmax = 2 * np.max(np.abs(mode[start_i:end_i, :].real))
         vmin = -vmax
@@ -695,51 +695,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         #cv2.destroyAllWindows()
         #video.release()
 
-    def plot_reconstructed_streamplot(self, u_ds_idx, v_ds_idx, mode_index):
-        u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
-        V_start_i, v_end_i = self.ds_idx_to_trainX_idx[v_ds_idx]
-        coords_array = self.datasets[u_ds_idx].get_coords()
-        n_i = len(np.unique(coords_array[:, 0]))
-        n_j = len(np.unique(coords_array[:, 1]))
-        name = self.datasets[u_ds_idx].name
-        is_building = self.datasets[u_ds_idx].is_building
-        pattern = os.path.join(self.save_dir, f"2_streamplot_*_{name}_*.png")
-        self.clean_up_figures(pattern)
-        
-        print("plotting streamplot:", name, mode_index)
-        print("Saving to:", self.save_dir)
-        mode = self.get_single_mode_reconstruction(mode_index)
-        image_list = []
-        for snapshot in range(mode.shape[1]):
-            Z_all = abs(mode[:, snapshot])
-            x = np.unique(coords_array[:, 0])
-            y = np.unique(coords_array[:, 1])  
-            U = 2 * mode[u_start_i:u_end_i, snapshot].reshape(n_j, n_i).real
-            V = 2 * mode[u_start_i:u_end_i, snapshot].reshape(n_j, n_i).real
-            x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100),
-                              np.linspace(y.min(), y.max(), 100))
-            u_interp = griddata((coords_array[:, 0], coords_array[:, 1]), U.ravel(), (x_grid, y_grid), method='cubic')
-            v_interp = griddata((coords_array[:, 0], coords_array[:, 1]), V.ravel(), (x_grid, y_grid), method='cubic')
-            plt.streamplot(x_grid, y_grid, u_interp, v_interp, density=[0.5, 1])
-            fig = plt.figure(figsize=(8, 6))
-            ax = plt.subplot(111)
-            ax.set_title(f"mode:{mode_index}, {name}")
-            ax.set_aspect("equal")
-            image_list.append(os.path.join(save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png"))
-            plt.savefig(os.path.join(save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png"))
-            plt.close(fig)
-            plt.cla()
-            plt.clf()
-            plt.close("all")
-            gc.collect()
-        #video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
-        #frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-        #height, width, layers = frame.shape
-        #video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-        #for image in image_list:
-        #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
-        #cv2.destroyAllWindows()
-        #video.release()
 
     def plot_multiple_mode_reconstruction(self, ds_idx, mode_indices, plot_negative=False):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
@@ -810,24 +765,77 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     
     def phase_averaging(self, mode_idx):
         
-        frequency = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        frequency = np.log(self.dmd.eigs[mode_idx]).imag / (2 * np.pi * self.dt)
+        print(frequency)
         mode = self.get_single_mode_reconstruction(mode_idx)
         # Calculate number of timesteps per cycle
         timesteps_per_cycle = int(1 / frequency / self.dt)
-        
+        print("timesteps per cycle: ", timesteps_per_cycle)
         
         # Calculate number of complete cycles
         num_cycles = mode.shape[1] // timesteps_per_cycle
-        
+        print("num_cycles: ", num_cycles)
         # Reshape data into cycles
-        mode_cycles = np.reshape(mode[:, :num_cycles*timesteps_per_cycle], (mode.shape[0], num_cycles, timesteps_per_cycle))
+        mode_cycles = mode[:, :num_cycles*timesteps_per_cycle]
+        cycles = []
+        for i in range(num_cycles):
+            cycle = mode_cycles[:, :timesteps_per_cycle]
+            mode_cycles = mode_cycles[:, timesteps_per_cycle:]
+            cycles.append(cycle)
         
-        # Average across timesteps in each cycle
-        averaged_mode = np.mean(mode_cycles, axis=2)
+        stacked_cycles = np.stack(cycles)
+        averaged_mode = np.mean(stacked_cycles, axis=0)
         
         return averaged_mode
     
+    def plot_reconstructed_streamplot(self, u_ds_idx, v_ds_idx, p_ds_idx, mode_index):
+        u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
+        v_start_i, v_end_i = self.ds_idx_to_trainX_idx[v_ds_idx]
+        p_start_i, p_end_i = self.ds_idx_to_trainX_idx[p_ds_idx]  
 
+        coords_array = self.datasets[u_ds_idx].get_coords()
+        name = self.datasets[u_ds_idx].name
+        pattern = os.path.join(self.save_dir, f"2_streamplot_*_{name}_*.png")
+        self.clean_up_figures(pattern)
+        
+        print("plotting streamplot:", name, mode_index)
+        print("Saving to:", self.save_dir)
+        mode = self.phase_averaging(mode_index)
+        
+        x = np.unique(coords_array[:, 0])
+        y = np.unique(coords_array[:, 1])
+        x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
+        image_list = []
+        
+        for snapshot in range(mode.shape[1]):
+            U = 2 * mode[u_start_i:u_end_i, snapshot].reshape(-1).real
+            V = 2 * mode[v_start_i:v_end_i, snapshot].reshape(-1).real 
+            P = 2 * mode[p_start_i:p_end_i, snapshot].reshape(-1).real 
+            
+            u_interp = griddata((coords_array[:, 0], coords_array[:, 1]), U, (x_grid, y_grid), method='cubic')
+            v_interp = griddata((coords_array[:, 0], coords_array[:, 1]), V, (x_grid, y_grid), method='cubic')
+            p_interp = griddata((coords_array[:, 0], coords_array[:, 1]), P, (x_grid, y_grid), method='cubic')
+            
+            fig, ax = plt.subplots(figsize=(8, 6)) 
+
+            # Plot the pressure contour first
+            pressure_levels = np.linspace(p_interp.min(), p_interp.max(), 100)
+            pressure_contour = ax.contourf(x_grid, y_grid, p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5)
+            plt.colorbar(pressure_contour, ax=ax, format='%.2f')
+
+            strm = ax.streamplot(x_grid, y_grid, u_interp, v_interp, density=[2,2], linewidth=0.75) #higher density = more lines
+            ax.set_title(f"Mode: {mode_index}, {name}")
+            ax.set_xlim(x.min(), x.max())
+            ax.set_aspect("equal")
+            
+            image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
+            plt.savefig(image_path)
+            image_list.append(image_path)  
+            plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
         
          
         
@@ -862,7 +870,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_multiple_mode_reconstruction(1, [14,16])
+    analysis.plot_reconstructed_streamplot(u_ds_idx=0, v_ds_idx=1, p_ds_idx=2, mode_index=16)
 
     # %%
 
