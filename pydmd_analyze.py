@@ -17,6 +17,7 @@ from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
 import time
 from scipy.interpolate import griddata
+from matplotlib.ticker import MaxNLocator
 
 matplotlib.use('Agg')
 
@@ -646,7 +647,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         image_list = []
         vmax = 2 * np.max(np.abs(mode[start_i:end_i, :].real))
         vmin = -vmax
-        print("vmax: ", vmax)
         for snapshot in range(mode.shape[1]):
             Z_all = abs(mode[:, snapshot])
             mode_select = mode[start_i:end_i, snapshot].reshape(n_j, n_i)
@@ -714,7 +714,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         image_list = []
         vmax = 2 * np.max(np.abs(summed_mode[start_i:end_i, :].real))
         vmin = -vmax
-        print("vmax: ", vmax)
         for snapshot in range(summed_mode.shape[1]):
             Z_all = abs(summed_mode[:, snapshot])
             mode_select = summed_mode[start_i:end_i, snapshot].reshape(n_j, n_i)
@@ -807,6 +806,11 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
         image_list = []
         
+        vmax = 2 * np.max(np.abs(mode[p_start_i:p_end_i, :].real))
+        vmin = -vmax
+        pressure_levels = np.linspace(vmin, vmax, 100)
+        print("vmax: ", vmax)
+        
         for snapshot in range(mode.shape[1]):
             U = 2 * mode[u_start_i:u_end_i, snapshot].reshape(-1).real
             V = 2 * mode[v_start_i:v_end_i, snapshot].reshape(-1).real 
@@ -819,13 +823,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             fig, ax = plt.subplots(figsize=(8, 6)) 
 
             # Plot the pressure contour first
-            pressure_levels = np.linspace(p_interp.min(), p_interp.max(), 100)
-            pressure_contour = ax.contourf(x_grid, y_grid, p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5)
-            plt.colorbar(pressure_contour, ax=ax, format='%.2f')
+            pressure_contour = ax.contourf(x_grid, y_grid, p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5, vmin = vmin, vmax = vmax)
+            cbar = plt.colorbar(pressure_contour)
 
             strm = ax.streamplot(x_grid, y_grid, u_interp, v_interp, density=[2,2], linewidth=0.75) #higher density = more lines
             ax.set_title(f"Mode: {mode_index}, {name}")
             ax.set_xlim(x.min(), x.max())
+            ax.set_ylim(y.min(), y.max())
             ax.set_aspect("equal")
             
             image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
@@ -836,6 +840,68 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.clf()
             plt.close("all")
             gc.collect()
+
+    # def plot_full_reconstructed_streamplot(self, u_ds_indices, v_ds_indices, p_ds_indices, mode_index):
+    #     u_start_coords, u_end_coords, v_start_coords, v_end_coords, p_start_coords, p_end_coords = []
+        
+    #     for i in range(u_ds_indices):
+    #         u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_indices[i]]
+    #         v_start_i, v_end_i = self.ds_idx_to_trainX_idx[v_ds_indices[i]]
+    #         p_start_i, p_end_i = self.ds_idx_to_trainX_idx[p_ds_indices[i]]
+    #         u_start_coords.append(u_start_i)
+    #         u_end_coords.append(u_end_i)
+    #         v_start_coords.append(v_start_i)
+    #         v_end_coords.append(v_end_i)
+    #         p_start_coords.append(p_start_i)
+    #         p_end_coords.append(p_end_i)
+
+    #     #coords_array = self.datasets[u_ds_idx].get_coords()
+    #     pattern = os.path.join(self.save_dir, f"2__combined_streamplot_*_{mode_index}_*.png")
+    #     self.clean_up_figures(pattern)
+        
+    #     print("plotting streamplot:", name, mode_index)
+    #     print("Saving to:", self.save_dir)
+    #     mode = self.phase_averaging(mode_index)
+        
+    #     x = np.unique(coords_array[:, 0])
+    #     y = np.unique(coords_array[:, 1])
+    #     x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
+    #     image_list = []
+        
+    #     vmax = 2 * np.max(np.abs(mode[p_start_i:p_end_i, :].real))
+    #     vmin = -vmax
+    #     pressure_levels = np.linspace(vmin, vmax, 100)
+    #     print("vmax: ", vmax)
+        
+    #     for snapshot in range(mode.shape[1]):
+    #         U = 2 * mode[u_start_i:u_end_i, snapshot].reshape(-1).real
+    #         V = 2 * mode[v_start_i:v_end_i, snapshot].reshape(-1).real 
+    #         P = 2 * mode[p_start_i:p_end_i, snapshot].reshape(-1).real 
+            
+    #         u_interp = griddata((coords_array[:, 0], coords_array[:, 1]), U, (x_grid, y_grid), method='cubic')
+    #         v_interp = griddata((coords_array[:, 0], coords_array[:, 1]), V, (x_grid, y_grid), method='cubic')
+    #         p_interp = griddata((coords_array[:, 0], coords_array[:, 1]), P, (x_grid, y_grid), method='cubic')
+            
+    #         fig, ax = plt.subplots(figsize=(8, 6)) 
+
+    #         # Plot the pressure contour first
+    #         pressure_contour = ax.contourf(x_grid, y_grid, p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5, vmin = vmin, vmax = vmax)
+    #         cbar = plt.colorbar(pressure_contour)
+
+    #         strm = ax.streamplot(x_grid, y_grid, u_interp, v_interp, density=[2,2], linewidth=0.75) #higher density = more lines
+    #         ax.set_title(f"Mode: {mode_index}, {name}")
+    #         ax.set_xlim(x.min(), x.max())
+    #         ax.set_ylim(y.min(), y.max())
+    #         ax.set_aspect("equal")
+            
+    #         image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
+    #         plt.savefig(image_path)
+    #         image_list.append(image_path)  
+    #         plt.close(fig)
+    #         plt.cla()
+    #         plt.clf()
+    #         plt.close("all")
+    #         gc.collect()
         
          
         
@@ -870,7 +936,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_reconstructed_streamplot(u_ds_idx=0, v_ds_idx=1, p_ds_idx=2, mode_index=16)
+    analysis.plot_reconstructed_streamplot(u_ds_idx=6, v_ds_idx=7, p_ds_idx=8, mode_index=16)
 
     # %%
 
