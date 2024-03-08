@@ -145,6 +145,25 @@ class DMDAnalysisBase:
             ds_indices = range(len(self.datasets))
         for i in ds_indices:
             self.datasets[i].normalize_data()
+    
+    def normalize_group(self, ds_indices):
+        data = np.empty((0,1))
+        original_shape_L = []
+        for idx in ds_indices:
+            original_shape_L.append(self.datasets[idx].data_array.shape)
+            data = np.vstack([data, self.datasets[idx].data_array.flatten().reshape(-1, 1)])
+        scaler = preprocessing.RobustScaler(with_centering=False)
+        scaler.fit(data)
+        print("Normalizing group:", [self.datasets[idx].name for idx in ds_indices])
+        print("Mean:", scaler.center_)
+        print("Scale:", scaler.scale_)
+        transformed_data = scaler.transform(data)
+        start_idx = 0
+        for i, idx in enumerate(ds_indices):
+            end_idx = start_idx + self.datasets[idx].data_array.size
+            self.datasets[idx].data_array = transformed_data[start_idx:end_idx, :].reshape(original_shape_L[i])
+            self.datasets[idx].scaler = scaler
+            start_idx = end_idx
             
     def compose_data(self, ds_indices=None):
         if ds_indices is None:
@@ -762,7 +781,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
        # cv2.destroyAllWindows()
         #video.release()
     
-    def phase_averaging(self, mode_idx):
+    def single_cycle(self, mode_idx):
         
         frequency = np.log(self.dmd.eigs[mode_idx]).imag / (2 * np.pi * self.dt)
         print(frequency)
@@ -771,21 +790,9 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         timesteps_per_cycle = int(1 / frequency / self.dt)
         print("timesteps per cycle: ", timesteps_per_cycle)
         
-        # Calculate number of complete cycles
-        num_cycles = mode.shape[1] // timesteps_per_cycle
-        print("num_cycles: ", num_cycles)
-        # Reshape data into cycles
-        mode_cycles = mode[:, :num_cycles*timesteps_per_cycle]
-        cycles = []
-        for i in range(num_cycles):
-            cycle = mode_cycles[:, :timesteps_per_cycle]
-            mode_cycles = mode_cycles[:, timesteps_per_cycle:]
-            cycles.append(cycle)
-        
-        stacked_cycles = np.stack(cycles)
-        averaged_mode = np.mean(stacked_cycles, axis=0)
-        
-        return averaged_mode
+        # Slice the first cycle, TODO: move slice to where pressure tap is at peak
+        single_cycle = mode[:, :timesteps_per_cycle]
+        return single_cycle
     
     def plot_reconstructed_streamplot(self, u_ds_idx, v_ds_idx, p_ds_idx, mode_index):
         u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
@@ -799,7 +806,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         print("plotting streamplot:", name, mode_index)
         print("Saving to:", self.save_dir)
-        mode = self.phase_averaging(mode_index)
+        mode = self.single_cycle(mode_index)
         
         x = np.unique(coords_array[:, 0])
         y = np.unique(coords_array[:, 1])
@@ -907,8 +914,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD"
+    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data"
+    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD"
 
     max_level = 6
     max_cycles = 4
@@ -926,7 +933,9 @@ if __name__ == "__main__":
     analysis.trim_datasets(t1=0, t2=100, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
-    analysis.normalize_datasets()
+    #analysis.normalize_datasets()
+    analysis.normalize_group(ds_indices = [0, 1, 3, 4, 6, 7])
+    analysis.normalize_group([2, 5, 8])
     #analysis.compose_data(ds_indices=[0, 1, 4])
     analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.save_dmd()
@@ -936,7 +945,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_reconstructed_streamplot(u_ds_idx=6, v_ds_idx=7, p_ds_idx=8, mode_index=16)
+    analysis.plot_reconstructed_streamplot(u_ds_idx=0, v_ds_idx=1, p_ds_idx=2, mode_index=16)
 
     # %%
 
