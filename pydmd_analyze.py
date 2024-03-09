@@ -887,7 +887,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         image_list = []
         
-        vmax = 2 * np.max(np.abs(mode[p_start_i:p_end_i, :].real))
+        vmax = 1
         vmin = -vmax
         pressure_levels = np.linspace(vmin, vmax, 100)
         print("vmax: ", vmax)       
@@ -912,10 +912,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                 pressure_contour = ax.contourf(x_grids[i], y_grids[i], p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5, vmin = vmin, vmax = vmax)
                 cbar = plt.colorbar(pressure_contour)
     
-                strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75) #higher density = more lines
+                strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75, color='blue') #higher density = more lines
             ax.set_title(f"Mode: {mode_index}, {name}")
-            ax.set_xlim(-0.03, 0.6)
-            ax.set_ylim(-0.03, 0.6)
+            ax.set_xlim(-0.03, 0.52)
+            ax.set_ylim(-0.3, 0.3)
             ax.set_aspect("equal")
             
             image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
