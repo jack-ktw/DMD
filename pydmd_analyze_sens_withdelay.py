@@ -9,6 +9,7 @@ from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
+import pandas as pd
 
 import time
 
@@ -859,8 +860,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"C:\Users\jason\OneDrive\桌面\Research\UofT\ZianData\Data"
-    save_dir = r"C:\Users\jason\OneDrive\桌面\Research\UofT\ZianData\Plots"
+    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data-rectangular"
+    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD-rectangular"
 
     max_level = 6
     max_cycles = 4
@@ -899,14 +900,14 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [1000, 800, 650, 400, 300, 200, 100]
+    num_snapshots_list = [3000,2500]
     average_errors_dict = {}
 
-    delay_lengths = [45, 30, 15]
+    delay_lengths = [1]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
-
+    data = []
     for delay_length in delay_lengths:
         analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
         analysis.make_save_dir()
@@ -924,12 +925,15 @@ if __name__ == "__main__":
             
             average_error = analysis.calc_average_error([0, 50, 100, 200, 1000, 2000], N)
             average_errors_dict[delay_length][N] = average_error
-
+            data.append({'Delay Length': delay_length, 'Number of Snapshots': N, 'Average Error': average_error})
+            
         plt.plot(
             list(average_errors_dict[delay_length].keys()),
             list(average_errors_dict[delay_length].values()),
             marker='o', linestyle='-', label=f'Delay Length: {delay_length}'
         )
+    df = pd.DataFrame(data)
+    df.to_excel(os.path.join(save_dir, 'average_errors_20.xlsx'), index=False)
 
     plt.xlabel('Number of Snapshots [N]')
     plt.ylabel('Total Reconstruction Error/N')
