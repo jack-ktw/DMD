@@ -848,76 +848,87 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 
-    def plot(self, ds_indices, mode_index, plot_negative=False, plot_building=False):
-        
-        suffix = ""
-        cmap = "viridis"
-        if plot_negative:
-            cmap = "RdBu_r"
-            
-            
-        name = "_".join([self.datasets[ds_idx].name for ds_idx in ds_indices])
-        is_building = self.datasets[ds_indices[0]].is_building
-        
-        pattern = os.path.join(self.save_dir, f"2_modeshape_*_*_{name}_*Hz{suffix}.png")
+    def plot_full_streamplot(self, u_ds_indices, v_ds_indices, p_ds_indices, mode_index):
+        #u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
+        #v_start_i, v_end_i = self.ds_idx_to_trainX_idx[v_ds_idx]
+        #p_start_i, p_end_i = self.ds_idx_to_trainX_idx[p_ds_idx]  
+        u_start_indices = []
+        v_start_indices = []
+        p_start_indices = []
+        u_end_indices = []
+        v_end_indices = []
+        p_end_indices = []
+        coords_arrays = []
+        x_grids = []
+        y_grids = []
+        for u_ds_idx, v_ds_idx, p_ds_idx in zip(u_ds_indices, v_ds_indices, p_ds_indices):
+            coords_arrays.append(self.datasets[u_ds_idx].get_coords())
+            u_start_i, u_end_i = self.ds_idx_to_trainX_idx[u_ds_idx]
+            v_start_i, v_end_i = self.ds_idx_to_trainX_idx[v_ds_idx]
+            p_start_i, p_end_i = self.ds_idx_to_trainX_idx[p_ds_idx]
+            u_start_indices.append(u_start_i)
+            v_start_indices.append(v_start_i)
+            p_start_indices.append(p_start_i)
+            u_end_indices.append(u_end_i)
+            v_end_indices.append(v_end_i)
+            p_end_indices.append(p_end_i)
+            x = np.unique(coords_arrays[-1][:, 0])
+            y = np.unique(coords_arrays[-1][:, 1])
+            x_grid, y_grid = np.meshgrid(np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100))
+            x_grids.append(x_grid)
+            y_grids.append(y_grid)
+        name = self.datasets[u_ds_idx].name
+        pattern = os.path.join(self.save_dir, f"2_streamplot_*_{name}_*.png")
         self.clean_up_figures(pattern)
-
-        print("plotting mode:", name)
+        
+        print("plotting streamplot:", name, mode_index)
         print("Saving to:", self.save_dir)
-        X_L = []
-        Y_L = []
-        for ds_idx in ds_indices:
-            start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
-            coords_array = self.datasets[ds_idx].get_coords()
-            pmodes_select = pmodes[start_i:end_i, mode_idx]
-            X_L.append(coords_array[:, 0])
-            Y_L.append(coords_array[:, 1] )
-
-        X = np.concatenate(X_L)
-        Y = np.concatenate(Y_L)
-        phase = np.concatenate(phase_L)
-        mag = np.concatenate(mag_L)
+        mode = self.single_cycle(mode_index)
         
-        if which == "phase":
-            Z = phase
-        else:
-            Z = mag
-        if which != "phase" and plot_negative:
-            Z[phase < 0] = -Z[phase < 0]
-            vmin = -vmax
+        image_list = []
         
-        freq = np.log(peigs[mode_idx]).imag / (2 * np.pi * self.dt)
-        grow = peigs[mode_idx].real
-
-        fig = plt.figure(figsize=(8, 6))
-        ax = plt.subplot(111)
-        levels = np.linspace(vmin, vmax, 20)
-        if self.datasets[ds_indices[0]].transpose:
-            X, Y = Y, X
-            Z = Z.T
-
-        CS = plt.tricontourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
-        colorbar = plt.colorbar(CS)
-        ax.set_title(f"level:{level}, mode:{mode_idx}, {name}, {freq:.1f} Hz{suffix}, g:{grow:.2f}")
-        ax.set_aspect("equal")
-        
-        if plot_building:
-            ax.fill_between([-self.D/2, self.D/2],
-                            -self.B/2, self.B/2, color='gray', alpha=1)
+        vmax = 2 * np.max(np.abs(mode[p_start_i:p_end_i, :].real))
+        vmin = -vmax
+        pressure_levels = np.linspace(vmin, vmax, 100)
+        print("vmax: ", vmax)       
+        for snapshot in range(mode.shape[1]):
+            fig, ax = plt.subplots(figsize=(8, 6))
+            for i in range(len(u_ds_indices)):
+                U = 2 * mode[u_start_indices[i]:u_end_indices[i], snapshot].reshape(-1).real
+                V = 2 * mode[v_start_indices[i]:v_end_indices[i], snapshot].reshape(-1).real 
+                P = 2 * mode[p_start_indices[i]:p_end_indices[i], snapshot].reshape(-1).real 
+                u_interp = griddata((coords_arrays[i][:, 0], coords_arrays[i][:, 1]), U, (x_grids[i], y_grids[i]), method='cubic')
+                print(coords_arrays[i][:, 0].shape)
+                print(coords_arrays[i][:, 1].shape)
+                print(U.shape)
+                print(x_grids[i].shape)
+                print(y_grids[i].shape)
+                v_interp = griddata((coords_arrays[i][:, 0], coords_arrays[i][:, 1]), V, (x_grids[i], y_grids[i]), method='cubic')
+                p_interp = griddata((coords_arrays[i][:, 0], coords_arrays[i][:, 1]), P, (x_grids[i], y_grids[i]), method='cubic')
+                
+                #fig, ax = plt.subplots(figsize=(8, 6)) 
+    
+                # Plot the pressure contour first
+                pressure_contour = ax.contourf(x_grids[i], y_grids[i], p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5, vmin = vmin, vmax = vmax)
+                cbar = plt.colorbar(pressure_contour)
+    
+                strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75) #higher density = more lines
+            ax.set_title(f"Mode: {mode_index}, {name}")
+            ax.set_xlim(-0.03, 0.6)
+            ax.set_ylim(-0.03, 0.6)
+            ax.set_aspect("equal")
             
-        if is_building:
-            line_value = self.H * 2/3
-            ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-            ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-            ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-            ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+            image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
+            plt.savefig(image_path)
+            image_list.append(image_path)  
+            plt.close(fig)
+            plt.cla()
+            plt.clf()
+            plt.close("all")
+            gc.collect()
 
-        plt.savefig(os.path.join(self.save_dir, f"2_modeshape_{level}_{mode_idx}_{name}_{freq:.1f}Hz{suffix}.png"))
-        plt.close(fig)
-        plt.cla()
-        plt.clf()
-        plt.close("all")
-        gc.collect()
+
+        
         
          
         
@@ -930,7 +941,7 @@ if __name__ == "__main__":
     max_cycles = 4
     svd_rank = 0.99
     tikhonov_regularization = 1e-7
-    delay_length = 45
+    delay_length = 2
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
@@ -950,11 +961,11 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
-    analysis.plot_dynamics()
-    analysis.plot_all_ds(plot_negative=True)
-    analysis.plot_amplitude_frequency()
-    analysis.plot_reconstructed_streamplot(u_ds_idx=0, v_ds_idx=1, p_ds_idx=2, mode_index=16)
+    #analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
+    #analysis.plot_dynamics()
+    #analysis.plot_all_ds(plot_negative=True)
+    #analysis.plot_amplitude_frequency()
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=16)
 
     # %%
 
