@@ -931,9 +931,9 @@ if __name__ == "__main__":
             marker='o', linestyle='-', label=f'Delay Length: {delay_length}'
         )
 
-    plt.xlabel('Number of Snapshots Used')
-    plt.ylabel('Average Error')
-    plt.title('Sensitivity Analysis: Average Error vs. Number of Snapshots')
+    plt.xlabel('Number of Snapshots [N]')
+    plt.ylabel('Total Reconstruction Error/N')
+    # plt.title('Sensitivity Analysis: Average Error vs. Number of Snapshots')
     plt.legend()
     plt.grid(True)
     plt.savefig(os.path.join(save_dir, "sensitivity_analysis_delays.png"))
