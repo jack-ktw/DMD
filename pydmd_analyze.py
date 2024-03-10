@@ -979,7 +979,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=81)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
 
     # %%
 
