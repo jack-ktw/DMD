@@ -488,8 +488,12 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         print("Saving to:", self.save_dir)
         modes = self.get_original_modes()
         eigs = self.dmd.eigs
-            
+        print(n_i)
+        print(n_j)
+        print(start_i)
+        print(end_i)
         for mode_idx in range(modes.shape[1]):
+            print(modes[start_i:end_i, mode_idx].shape)
             Z_all = abs(modes[:, mode_idx])
             modes_select = modes[start_i:end_i, mode_idx].reshape(n_j, n_i)
             X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
@@ -887,22 +891,30 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         image_list = []
         
-        vmax = 1
+
+        
+        combined_coords_array = np.concatenate(coords_arrays)
+        x = combined_coords_array[:,0]
+        y = combined_coords_array[:,1]
+        p_only = None
+        for p_start_i, p_end_i in zip(p_start_indices, p_end_indices):
+            if p_only is None:
+                p_only = mode[p_start_i:p_end_i, :]
+            else:
+                p_only = np.vstack((p_only, mode[p_start_i:p_end_i, :]))
+        
+        vmax = 2 * np.max(np.abs(p_only)) 
         vmin = -vmax
         pressure_levels = np.linspace(vmin, vmax, 100)
-        print("vmax: ", vmax)       
+        cbar_created = False
         for snapshot in range(mode.shape[1]):
             fig, ax = plt.subplots(figsize=(8, 6))
+            cbar_created = False
             for i in range(len(u_ds_indices)):
                 U = 2 * mode[u_start_indices[i]:u_end_indices[i], snapshot].reshape(-1).real
                 V = 2 * mode[v_start_indices[i]:v_end_indices[i], snapshot].reshape(-1).real 
                 P = 2 * mode[p_start_indices[i]:p_end_indices[i], snapshot].reshape(-1).real 
                 u_interp = griddata((coords_arrays[i][:, 0], coords_arrays[i][:, 1]), U, (x_grids[i], y_grids[i]), method='cubic')
-                print(coords_arrays[i][:, 0].shape)
-                print(coords_arrays[i][:, 1].shape)
-                print(U.shape)
-                print(x_grids[i].shape)
-                print(y_grids[i].shape)
                 v_interp = griddata((coords_arrays[i][:, 0], coords_arrays[i][:, 1]), V, (x_grids[i], y_grids[i]), method='cubic')
                 p_interp = griddata((coords_arrays[i][:, 0], coords_arrays[i][:, 1]), P, (x_grids[i], y_grids[i]), method='cubic')
                 
@@ -910,12 +922,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     
                 # Plot the pressure contour first
                 pressure_contour = ax.contourf(x_grids[i], y_grids[i], p_interp, levels=pressure_levels, cmap='coolwarm', alpha=0.5, vmin = vmin, vmax = vmax)
-                cbar = plt.colorbar(pressure_contour)
+                if not cbar_created:
+                    cbar = plt.colorbar(pressure_contour)
+                    cbar_created = True
     
-                strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75, color='blue') #higher density = more lines
+                strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75, color='black', arrowsize=0) #higher density = more lines
             ax.set_title(f"Mode: {mode_index}, {name}")
-            ax.set_xlim(-0.03, 0.52)
-            ax.set_ylim(-0.3, 0.3)
+            ax.set_xlim(x.min(), x.max())
+            ax.set_ylim(y.min(), y.max())
             ax.set_aspect("equal")
             
             image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
@@ -934,14 +948,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data"
-    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD"
+    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data-rectangular"
+    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD-rectangular"
 
     max_level = 6
     max_cycles = 4
     svd_rank = 0.99
     tikhonov_regularization = 1e-7
-    delay_length = 2
+    delay_length = 15
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
@@ -950,7 +964,7 @@ if __name__ == "__main__":
     relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
     coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=100, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    analysis.trim_datasets(t1=0, t2=300, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
     #analysis.normalize_datasets()
@@ -961,11 +975,11 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    #analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
-    #analysis.plot_dynamics()
-    #analysis.plot_all_ds(plot_negative=True)
-    #analysis.plot_amplitude_frequency()
-    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=16)
+    analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
+    analysis.plot_dynamics()
+    analysis.plot_all_ds(plot_negative=True)
+    analysis.plot_amplitude_frequency()
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=81)
 
     # %%
 
