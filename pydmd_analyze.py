@@ -18,6 +18,7 @@ from pydmd.preprocessing.hankel import hankel_preprocessing
 import time
 from scipy.interpolate import griddata
 from matplotlib.ticker import MaxNLocator
+import cv2
 
 matplotlib.use('Agg')
 
@@ -790,6 +791,9 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         frequency = np.log(self.dmd.eigs[mode_idx]).imag / (2 * np.pi * self.dt)
         print(frequency)
         mode = self.get_single_mode_reconstruction(mode_idx)
+        #mode2 = self.get_single_mode_reconstruction(41)
+       # mode3 = self.get_single_mode_reconstruction(43)
+        #mode = mode + mode2 + mode3
         # Calculate number of timesteps per cycle
         timesteps_per_cycle = int(1 / frequency / self.dt)
         print("timesteps per cycle: ", timesteps_per_cycle)
@@ -927,14 +931,22 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                     cbar_created = True
     
                 strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75, color='black', arrowsize=0) #higher density = more lines
-            ax.set_title(f"Mode: {mode_index}, {name}")
+            ax.set_title(f"Mode: {mode_index}")
             ax.set_xlim(x.min(), x.max())
             ax.set_ylim(y.min(), y.max())
             ax.set_aspect("equal")
             
             image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
             plt.savefig(image_path)
-            image_list.append(image_path)  
+            image_list.append(image_path)
+            video_name = os.path.join(self.save_dir, f"mode_{mode_index}_streamplot.avi")
+            frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+            height, width, layers = frame.shape
+            video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+            for image in image_list:
+                video.write(cv2.imread(os.path.join(self.save_dir, image)))
+            cv2.destroyAllWindows()
+            video.release()
             plt.close(fig)
             plt.cla()
             plt.clf()
@@ -975,11 +987,11 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    analysis.plot_timeseries([0, 50, 100, 200, 1000, 2000])
-    analysis.plot_dynamics()
-    analysis.plot_all_ds(plot_negative=True)
+    analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
+    #analysis.plot_dynamics()
+    #analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
+    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
 
     # %%
 
