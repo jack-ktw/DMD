@@ -33,9 +33,9 @@ def parse_excel_sheet(file_path):
     return average_errors_dict
 
 # Example usage:
-file_path = r"D:\Python Files\Research - DMD\research_paper\sensitivity-analysis\average_errors_200_300.xlsx"
+file_path = r"C:\Users\Keith\Documents\research_paper\sensitivity-analysis-square\average_errors_15.xlsx"
 average_errors_dict = parse_excel_sheet(file_path)
-save_dir = r"D:\Python Files\Research - DMD\research_paper\sensitivity-analysis"
+save_dir = r"C:\Users\Keith\Documents\research_paper\sensitivity-analysis-square"
 plt.figure(figsize=(10, 6))
 data = []
 for delay_length in average_errors_dict.keys():
@@ -45,9 +45,8 @@ for delay_length in average_errors_dict.keys():
         marker='o', linestyle='-', label=f'Delay Length: {delay_length}'
     )
 
-plt.xlabel('Number of Snapshots [N]')
-plt.ylabel('Total Reconstruction Error/N')
-plt.title('Sensitivity Analysis: Total Reconstruction Error/N vs. Number of Snapshots [N]')
-plt.legend()
+plt.xlabel('Number of Snapshots [N]', fontsize=17)
+plt.ylabel('Total Reconstruction Error/N', fontsize=17)
+plt.legend(fontsize=15)
 plt.grid(True)
 plt.savefig(os.path.join(save_dir, "sensitivity_analysis_delays.png"))
