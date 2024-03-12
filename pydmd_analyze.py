@@ -620,15 +620,15 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                         str(i), ha='right', va='bottom')
         
         # Set the plot title and axis labels
-        ax.set_title("DMD Mode Amplitudes vs Frequencies")
-        ax.set_xlabel("Frequency (Hz)")
-        ax.set_ylabel("Amplitude")
+        #ax.set_title("DMD Mode Amplitudes vs Frequencies")
+        ax.set_xlabel("Frequency (Hz)", fontsize = 17)
+        ax.set_ylabel("Amplitude", fontsize = 17)
         ax.set_xlim(0)
         
         # Add a colorbar to the plot
         norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
         cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), ax=ax)
-        cbar.set_label("Mode Number")
+        cbar.set_label("Mode Number", fontsize = 17)
         
         plt.savefig(os.path.join(self.save_dir, "amplitude_frequency.png"))
         plt.close(fig)
@@ -960,8 +960,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data-rectangular"
-    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD-rectangular"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Data-square"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD-square"
 
     max_level = 6
     max_cycles = 4
@@ -987,12 +987,14 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
+    #analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
     #analysis.plot_dynamics()
     #analysis.plot_all_ds(plot_negative=True)
-    analysis.plot_amplitude_frequency()
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
-
+    #analysis.plot_amplitude_frequency()
+    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=57)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
     # %%
 
     # idx_li = dmd0.time_window_bins(0, 400)
