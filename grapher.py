@@ -45,8 +45,8 @@ for delay_length in average_errors_dict.keys():
         marker='o', linestyle='-', label=f'Delay Length: {delay_length}'
     )
 
-plt.xlabel('Number of Snapshots [N]', fontsize=17)
-plt.ylabel('Total Reconstruction Error/N', fontsize=17)
+plt.xlabel('Number of Snapshots N', fontsize=17)
+plt.ylabel('RMSE', fontsize=17)
 plt.legend(fontsize=15)
 plt.grid(True)
 plt.savefig(os.path.join(save_dir, "sensitivity_analysis_delays.png"))
