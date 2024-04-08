@@ -620,15 +620,15 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                         str(i), ha='right', va='bottom')
         
         # Set the plot title and axis labels
-        ax.set_title("DMD Mode Amplitudes vs Frequencies")
-        ax.set_xlabel("Frequency (Hz)")
-        ax.set_ylabel("Amplitude")
+        #ax.set_title("DMD Mode Amplitudes vs Frequencies")
+        ax.set_xlabel("Frequency (Hz)", fontsize = 17)
+        ax.set_ylabel("Amplitude", fontsize = 17)
         ax.set_xlim(0)
         
         # Add a colorbar to the plot
         norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
         cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), ax=ax)
-        cbar.set_label("Mode Number")
+        cbar.set_label("Mode Number", fontsize = 17)
         
         plt.savefig(os.path.join(self.save_dir, "amplitude_frequency.png"))
         plt.close(fig)
@@ -960,8 +960,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\pressure_case\data"
-    save_dir = r"D:\Python Files\Research - DMD\pressure_case\HankelDMD"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Data-square"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD-square"
 
     max_level = 6
     max_cycles = 4
@@ -971,28 +971,30 @@ if __name__ == "__main__":
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p"]
-    is_building_li = [True]
-    relative_paths = [r"surface_pressure/p.csv"]
-    coords_relative_paths = [r"surface_pressure/coords.csv"]
+    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
+    is_building_li = [False, False, False, False, False, False, False, False, False]
+    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
+    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=300, i1=0, i2=None, ds_indices=[0])
-    #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
-    #analysis.demean_datasets()
+    analysis.trim_datasets(t1=0, t2=300, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
+    analysis.demean_datasets()
     #analysis.normalize_datasets()
-    #analysis.normalize_group(ds_indices = [0, 1, 3, 4, 6, 7])
-    #analysis.normalize_group([2, 5, 8])
+    analysis.normalize_group(ds_indices = [0, 1, 3, 4, 6, 7])
+    analysis.normalize_group([2, 5, 8])
     #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0])
+    analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
+    #analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
     #analysis.plot_dynamics()
     #analysis.plot_all_ds(plot_negative=True)
-    analysis.plot_amplitude_frequency()
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
-
+    #analysis.plot_amplitude_frequency()
+    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=57)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
     # %%
 
     # idx_li = dmd0.time_window_bins(0, 400)
