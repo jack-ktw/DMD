@@ -618,18 +618,22 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                                 c=i+1, cmap='viridis', vmin=0, vmax=200, label=f"Mode {i+1}", s=50)
                 ax.text(frequency,
                         np.abs(mode_amplitudes[i]),
-                        str(i), ha='right', va='bottom')
+                        str(i), ha='right', va='bottom', fontsize = 16)
         
         # Set the plot title and axis labels
         #ax.set_title("DMD Mode Amplitudes vs Frequencies")
-        ax.set_xlabel("Frequency (Hz)", fontsize = 17)
-        ax.set_ylabel("Amplitude", fontsize = 17)
+        ax.set_xlabel("Frequency (Hz)", fontsize = 20)
+        ax.set_ylabel("Amplitude", fontsize = 20)
         ax.set_xlim(0)
+        
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
         
         # Add a colorbar to the plot
         norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
         cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), ax=ax)
-        cbar.set_label("Mode Number", fontsize = 17)
+        cbar.set_label("Mode Number", fontsize = 20)
+        cbar.ax.tick_params(labelsize=16)
         
         plt.savefig(os.path.join(self.save_dir, "amplitude_frequency.png"))
         plt.close(fig)
@@ -932,11 +936,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                     cbar_created = True
     
                 strm = ax.streamplot(x_grids[i], y_grids[i], u_interp, v_interp, density=[2,2], linewidth=0.75, color='black', arrowsize=0) #higher density = more lines
-            ax.set_title(f"Mode: {mode_index}")
+            #ax.set_title(f"Mode: {mode_index}")
             ax.set_xlim(x.min(), x.max())
             ax.set_ylim(y.min(), y.max())
+            ax.tick_params(axis='x', labelsize=20)
+            ax.tick_params(axis='y', labelsize=20)
             ax.set_aspect("equal")
-            
+            cbar.ax.tick_params(labelsize=20)
             image_path = os.path.join(self.save_dir, f"2_streamplot_{mode_index}_{name}_{snapshot}.png") 
             plt.savefig(image_path)
             image_list.append(image_path)
@@ -961,41 +967,41 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD"
+    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data-rectangular"
+    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD-rectangular"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 125
+    svd_rank = 0.99
     tikhonov_regularization = 1e-7
-    delay_length = 30
+    delay_length = 15
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p"]
-    is_building_li = [False]
-    relative_paths = [r"surface/p.csv"]
-    coords_relative_paths = [r"surface/coords.csv"]
+    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
+    is_building_li = [False, False, False, False, False, False, False, False, False]
+    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
+    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=730, i1=0, i2=None, ds_indices=[0])
-    #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
-    #analysis.demean_datasets()
+    analysis.trim_datasets(t1=0, t2=300, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
+    analysis.demean_datasets()
     #analysis.normalize_datasets()
-    #analysis.normalize_group(ds_indices = [0, 1, 3, 4, 6, 7])
-    #analysis.normalize_group([2, 5, 8])
+    analysis.normalize_group(ds_indices = [0, 1, 3, 4, 6, 7])
+    analysis.normalize_group([2, 5, 8])
     #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0])
+    analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
     analysis.save_dmd()
     #analysis.load_dmd()
 
     #analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
-    analysis.plot_dynamics()
-    analysis.plot_all_ds(plot_negative=True)
+    #analysis.plot_dynamics()
+    #analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=57)
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
+    #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
+    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
     # %%
 
     # idx_li = dmd0.time_window_bins(0, 400)
