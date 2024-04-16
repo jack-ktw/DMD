@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import os
+import cv2
 
 def parse_excel_sheet(file_path):
     # Read Excel sheet into a DataFrame
