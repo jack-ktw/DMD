@@ -860,8 +860,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data-rectangular"
-    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD-rectangular"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis"
 
     max_level = 6
     max_cycles = 4
@@ -871,10 +871,10 @@ if __name__ == "__main__":
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
-    is_building_li = [False, False, False, False, False, False, False, False, False]
-    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
-    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
+    names = ["p"]
+    is_building_li = [False]
+    relative_paths = [r"surface/p.csv"]
+    coords_relative_paths = [r"surface/coords.csv"]
 
     # num_snapshots_list = [1000, 750, 500, 300, 200, 100, 50]
 
@@ -900,10 +900,10 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [3000,2500]
+    num_snapshots_list = [200, 400, 600, 730, 800, 1000, 1200]
     average_errors_dict = {}
 
-    delay_lengths = [1]
+    delay_lengths = [1, 10, 20, 30, 40]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
@@ -915,15 +915,15 @@ if __name__ == "__main__":
 
         for N in num_snapshots_list:
             analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-            analysis.trim_datasets(t1=0, t2=N, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
-            analysis.filter_datasets(x_lower=-0.5, ds_indices=[0, 1, 2, 3, 4, 5])
+            analysis.trim_datasets(t1=0, t2=N, i1=0, i2=None, ds_indices=[0])
+            #analysis.filter_datasets(x_lower=-0.5, ds_indices=[0, 1, 2, 3, 4, 5])
             analysis.demean_datasets()
             analysis.normalize_datasets()
-            analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+            analysis.fit(ds_indices=[0])
             analysis.save_dmd()
         
             
-            average_error = analysis.calc_average_error([0, 50, 100, 200, 1000, 2000], N)
+            average_error = analysis.calc_average_error([0, 50, 100, 200, 400], N)
             average_errors_dict[delay_length][N] = average_error
             data.append({'Delay Length': delay_length, 'Number of Snapshots': N, 'Average Error': average_error})
             
@@ -933,7 +933,7 @@ if __name__ == "__main__":
             marker='o', linestyle='-', label=f'Delay Length: {delay_length}'
         )
     df = pd.DataFrame(data)
-    df.to_excel(os.path.join(save_dir, 'average_errors_20.xlsx'), index=False)
+    df.to_excel(os.path.join(save_dir, 'average_errors_all.xlsx'), index=False)
 
     plt.xlabel('Number of Snapshots [N]')
     plt.ylabel('Total Reconstruction Error/N')
