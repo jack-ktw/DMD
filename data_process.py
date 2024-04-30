@@ -22,13 +22,13 @@ def load_exp_data(exp_df):
     return p_array, location_df, exp_time_array
 
 
-p_array, location_df, exp_time_array = load_exp_data(r"C:\Users\Keith\Documents\research_paper\pressure-case\Data\time_series_of_point_wind_pressure_0.mat")
+p_array, location_df, exp_time_array = load_exp_data(r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data\1_5_CFD.mat")
 
 p_array = pd.DataFrame(p_array)
 p_array.insert(0, 'Time', exp_time_array)
 p_array.columns = ['Time'] + [str(i) for i in range(len(p_array.columns) - 1)]
 
-p_array.to_csv(r'C:\Users\Keith\Documents\research_paper\pressure-case\Data\p.csv', index=False)
+p_array.to_csv(r'C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data\p.csv', index=False)
 
 location_df.insert(0, 'Index', range(len(location_df)))
-location_df.to_csv(r'C:\Users\Keith\Documents\research_paper\pressure-case\Data\coords.csv', index=False)
+location_df.to_csv(r'C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data\coords.csv', index=False)

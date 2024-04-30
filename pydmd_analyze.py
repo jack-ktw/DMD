@@ -967,30 +967,29 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"D:\Python Files\Research - DMD\research_paper\Data-rectangular"
-    save_dir = r"D:\Python Files\Research - DMD\research_paper\HankelDMD-rectangular"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD"
 
     max_level = 6
     max_cycles = 4
     svd_rank = 0.99
     tikhonov_regularization = 1e-7
-    delay_length = 15
+    delay_length = 30
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
-    is_building_li = [False, False, False, False, False, False, False, False, False]
-    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
-    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
+    names = ["p"]
+    is_building_li = [False]
+    relative_paths = [r"p.csv"]
+    coords_relative_paths = [r"coords.csv"]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=300, i1=0, i2=None, ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
-    analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
+    analysis.trim_datasets(t1=0, t2=730, i1=0, i2=None, ds_indices=[0])
+    #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
     #analysis.normalize_datasets()
-    analysis.normalize_group(ds_indices = [0, 1, 3, 4, 6, 7])
-    analysis.normalize_group([2, 5, 8])
+    analysis.normalize_group(ds_indices = [0])
     #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0, 1, 2, 3, 4, 5, 6, 7, 8])
+    analysis.fit(ds_indices=[0])
     analysis.save_dmd()
     #analysis.load_dmd()
 
@@ -1001,7 +1000,7 @@ if __name__ == "__main__":
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=57)
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
-    analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
+    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
     # %%
 
     # idx_li = dmd0.time_window_bins(0, 400)
