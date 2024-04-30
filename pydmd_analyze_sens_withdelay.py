@@ -900,7 +900,7 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [200, 400, 600, 730, 800, 1000, 1200]
+    num_snapshots_list = [50, 100, 150, 200, 400, 600, 730, 800, 1000, 1200, 1500, 1750, 2000]
     average_errors_dict = {}
 
     delay_lengths = [1, 10, 20, 30, 40]
