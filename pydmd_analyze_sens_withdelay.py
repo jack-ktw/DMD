@@ -865,7 +865,7 @@ if __name__ == "__main__":
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.99
+    svd_rank = 0.8
     tikhonov_regularization = 1e-7
     delay_length = 5
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
@@ -923,7 +923,7 @@ if __name__ == "__main__":
             analysis.save_dmd()
         
             
-            average_error = analysis.calc_average_error([0, 50, 100, 200, 400], N)
+            average_error = analysis.calc_average_error([0, 50, 100, 200, 300, 400], N)
             average_errors_dict[delay_length][N] = average_error
             data.append({'Delay Length': delay_length, 'Number of Snapshots': N, 'Average Error': average_error})
             
