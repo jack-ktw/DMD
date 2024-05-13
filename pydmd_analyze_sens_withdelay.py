@@ -873,8 +873,8 @@ if __name__ == "__main__":
 
     names = ["p"]
     is_building_li = [False]
-    relative_paths = [r"surface/p.csv"]
-    coords_relative_paths = [r"surface/coords.csv"]
+    relative_paths = [r"surface\p.csv"]
+    coords_relative_paths = [r"surface\coords.csv"]
 
     # num_snapshots_list = [1000, 750, 500, 300, 200, 100, 50]
 
