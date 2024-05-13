@@ -967,14 +967,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.9
+    svd_rank = 0.99
     tikhonov_regularization = 1e-7
-    delay_length = 30
+    delay_length = 40
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
@@ -993,7 +993,7 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    #analysis.plot_timeseries([0, 50, 100, 200, 1000, 6187])
+    analysis.plot_timeseries([0, 50, 100, 200, 300, 400, 499])
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
