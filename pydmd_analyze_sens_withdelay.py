@@ -403,42 +403,17 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         self.dmd.fit(X=self.train_X.T)
         print("# modes:", self.dmd.modes.shape)
             
-    def plot_timeseries(self, idx_li, snapshot):
+    def plot_timeseries(self, idx_li):
+        pdata = self.dmd.reconstructed_data
         for idx in idx_li:
-            pdata = self.dmd.reconstructed_data
             fig_name = f"timeseries_{idx}"
             plt.figure(figsize=(12, 8))
             plt.plot(pdata[idx, :], alpha=0.7, label=f"DMD")
             plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
-
-            cumulative_error = np.sum((pdata[idx, :] - self.train_X[:, idx])**2) 
-       
-            error_threshold = 0.1 * np.sum(self.train_X[:, idx] ** 2)  # 10% of the sum of squares of the original data
-        
-            # Check if cumulative error is within the threshold
-            error_status = "within" if cumulative_error <= error_threshold else "exceeds"
-
-            plt.text(0.5, 0.02, f'Cumulative Error: {cumulative_error:.2f} ({error_status} 10% threshold)',
-                horizontalalignment='center',
-                verticalalignment='center',
-                transform=plt.gca().transAxes, fontsize=12, color='red')
             # plt.ylim([-1.1, 1.1])
             plt.legend()
             plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
-            plt.close()
-
-            errors = (pdata[idx, :] - self.train_X[:, idx]) ** 2
-            cumulative_errors = np.cumsum(errors)
-            snapshots = np.arange(1, len(errors) + 1)
-
-            plt.figure(figsize=(12, 8))
-            plt.plot(snapshots, cumulative_errors, marker='o', linestyle='-', color='r')
-            plt.xlabel('Number of Snapshots Used')
-            plt.ylabel('Cumulative Error')
-            plt.title(f"{fig_name} Cumulative Error vs. Number of Snapshots")
-            plt.grid(True)
-            plt.savefig(os.path.join(self.save_dir, f"{fig_name}_cumulative_error.png"))
             plt.close()
         
     def calc_average_error(self, idx_li, snapshot):
@@ -900,10 +875,10 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [50, 100, 150, 200, 400, 600, 730, 800, 1000, 1200, 1500, 1750, 2000]
+    num_snapshots_list = [100]
     average_errors_dict = {}
 
-    delay_lengths = [1, 10, 20, 30, 40]
+    delay_lengths = [40]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
@@ -921,8 +896,7 @@ if __name__ == "__main__":
             analysis.normalize_datasets()
             analysis.fit(ds_indices=[0])
             analysis.save_dmd()
-        
-            
+            analysis.plot_timeseries([0, 50, 100, 200])
             average_error = analysis.calc_average_error([0, 50, 100, 200, 300, 400], N)
             average_errors_dict[delay_length][N] = average_error
             data.append({'Delay Length': delay_length, 'Number of Snapshots': N, 'Average Error': average_error})
@@ -934,7 +908,6 @@ if __name__ == "__main__":
         )
     df = pd.DataFrame(data)
     df.to_excel(os.path.join(save_dir, 'average_errors_all.xlsx'), index=False)
-
     plt.xlabel('Number of Snapshots [N]')
     plt.ylabel('Total Reconstruction Error/N')
     # plt.title('Sensitivity Analysis: Average Error vs. Number of Snapshots')
@@ -942,7 +915,7 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.savefig(os.path.join(save_dir, "sensitivity_analysis_delays.png"))
     plt.show()
-
+    
     # analysis.plot_dynamics()
     # analysis.plot_all_ds(plot_negative=True)
     # analysis.plot_amplitude_frequency()
