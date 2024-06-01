@@ -993,7 +993,7 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    analysis.plot_timeseries([0, 100, 200, 300, 400])
+    analysis.plot_timeseries([0, 50, 100, 200])
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
