@@ -416,15 +416,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
         
-    def calc_average_error(self, idx_li, snapshot):
-        errors_accumulated = []
-        for idx in idx_li:
-            pdata = self.dmd.reconstructed_data
-            cumulative_error = np.sum((pdata[idx, :] - self.train_X[:, idx])**2) 
-            errors_accumulated.append(cumulative_error.real)  
-
-        average_error = np.mean(errors_accumulated) / snapshot
-        return average_error
+    def calc_average_error(self, probes):
+        orig_pdata = self.dmd.reconstructed_data
+        dmd_pdata = np.transpose(self.train_X)
+        print("shapes:")
+        print(orig_pdata.shape)
+        print(dmd_pdata.shape)
+        rmse = np.sqrt(np.sum(np.square(np.subtract(orig_pdata, dmd_pdata))) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
+        return rmse
                 
     def plot_dynamics(self):
         pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
@@ -875,20 +874,20 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [100]
+    num_snapshots_list = [50, 100, 200, 500, 1000]
     average_errors_dict = {}
 
-    delay_lengths = [40]
+    delay_lengths = [10, 20, 30]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
     data = []
+    
     for delay_length in delay_lengths:
-        analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
-        analysis.make_save_dir()
         average_errors_dict[delay_length] = {}
-
         for N in num_snapshots_list:
+            analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
+            analysis.make_save_dir()
             analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
             analysis.trim_datasets(t1=0, t2=N, i1=0, i2=None, ds_indices=[0])
             #analysis.filter_datasets(x_lower=-0.5, ds_indices=[0, 1, 2, 3, 4, 5])
@@ -897,7 +896,7 @@ if __name__ == "__main__":
             analysis.fit(ds_indices=[0])
             analysis.save_dmd()
             analysis.plot_timeseries([0, 50, 100, 200])
-            average_error = analysis.calc_average_error([0, 50, 100, 200, 300, 400], N)
+            average_error = analysis.calc_average_error(500)
             average_errors_dict[delay_length][N] = average_error
             data.append({'Delay Length': delay_length, 'Number of Snapshots': N, 'Average Error': average_error})
             
