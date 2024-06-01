@@ -972,7 +972,7 @@ if __name__ == "__main__":
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.99
+    svd_rank = 0.8
     tikhonov_regularization = 1e-7
     delay_length = 40
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
@@ -994,8 +994,8 @@ if __name__ == "__main__":
     #analysis.load_dmd()
 
     analysis.plot_timeseries([0, 50, 100, 200])
-    analysis.plot_dynamics()
-    analysis.plot_all_ds(plot_negative=True)
+    #analysis.plot_dynamics()
+    #analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
     #analysis.plot_full_streamplot(u_ds_indices=[], v_ds_indices=[], p_ds_indices=[0], mode_index=19)
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
