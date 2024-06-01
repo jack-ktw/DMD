@@ -968,7 +968,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update_100"
 
     max_level = 6
     max_cycles = 4
@@ -983,7 +983,7 @@ if __name__ == "__main__":
     relative_paths = [r"p.csv"]
     coords_relative_paths = [r"coords.csv"]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=0, t2=2000, i1=0, i2=None, ds_indices=[0])
+    analysis.trim_datasets(t1=0, t2=100, i1=0, i2=None, ds_indices=[0])
     #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
     #analysis.normalize_datasets()
@@ -993,11 +993,11 @@ if __name__ == "__main__":
     analysis.save_dmd()
     #analysis.load_dmd()
 
-    analysis.plot_timeseries([0, 50, 100, 200, 300, 400, 499])
+    analysis.plot_timeseries([0, 100, 200, 300, 400])
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=57)
+    #analysis.plot_full_streamplot(u_ds_indices=[], v_ds_indices=[], p_ds_indices=[0], mode_index=19)
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
