@@ -834,21 +834,21 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD-rectangular\sensitivity-analysis"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.8
+    svd_rank = 0.99
     tikhonov_regularization = 1e-7
     delay_length = 5
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p"]
-    is_building_li = [False]
-    relative_paths = [r"surface\p.csv"]
-    coords_relative_paths = [r"surface\coords.csv"]
+    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
+    is_building_li = [False, False, False, False, False, False, False, False, False]
+    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
+    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
 
     # num_snapshots_list = [1000, 750, 500, 300, 200, 100, 50]
 
@@ -874,10 +874,10 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [50, 100, 200, 500, 1000]
+    num_snapshots_list = [100, 200, 300, 400, 650, 800]
     average_errors_dict = {}
 
-    delay_lengths = [10, 20, 30]
+    delay_lengths = [1, 5, 10, 15]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
@@ -895,7 +895,7 @@ if __name__ == "__main__":
             analysis.normalize_datasets()
             analysis.fit(ds_indices=[0])
             analysis.save_dmd()
-            analysis.plot_timeseries([0, 50, 100, 200])
+            #analysis.plot_timeseries([0, 50, 100, 200])
             average_error = analysis.calc_average_error(500)
             average_errors_dict[delay_length][N] = average_error
             data.append({'Delay Length': delay_length, 'Number of Snapshots': N, 'Average Error': average_error})
