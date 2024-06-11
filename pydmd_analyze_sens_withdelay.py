@@ -834,21 +834,21 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\HankelDMD-rectangular\sensitivity-analysis"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.99
+    svd_rank = 0.9
     tikhonov_regularization = 1e-7
     delay_length = 5
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["U1", "V1", "p1", "U2", "V2", "p2", "U4", "V4", "p4"]
-    is_building_li = [False, False, False, False, False, False, False, False, False]
-    relative_paths = [r"left_region/ux1.csv", r"left_region/uy1.csv", r"left_region\p1.csv", r"right_region/ux2.csv", r"right_region/uy2.csv", r"right_region\p2.csv", r"back_region/ux4.csv", r"back_region/uy4.csv", r"back_region\p4.csv"]
-    coords_relative_paths = [r"left_region/coords1.csv", -1, -1, r"right_region/coords2.csv", -1, -1, r"back_region/coords4.csv", -1, -1]
+    names = ["p1"]
+    is_building_li = [False]
+    relative_paths = [r"p.csv"]
+    coords_relative_paths = [r"coords.csv"]
 
     # num_snapshots_list = [1000, 750, 500, 300, 200, 100, 50]
 
@@ -874,10 +874,10 @@ if __name__ == "__main__":
     # plt.grid(True)
     # plt.savefig(os.path.join(analysis.save_dir, "sensitivity_analysis.png"))
 
-    num_snapshots_list = [100, 200, 300, 400, 650, 800]
+    num_snapshots_list = [50, 100, 200, 300, 400, 500, 800, 1000]
     average_errors_dict = {}
 
-    delay_lengths = [1, 5, 10, 15]
+    delay_lengths = [1, 10, 20, 30, 40]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
