@@ -672,7 +672,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         print("plotting mode:", name, mode_index)
         print("Saving to:", self.save_dir)
-        mode = self.phase_averaging(mode_index)
+        mode = self.get_single_mode_reconstruction(mode_index)
         image_list = []
         vmax = 2 * np.max(np.abs(mode[start_i:end_i, :].real))
         vmin = -vmax
@@ -716,13 +716,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
         video_name = os.path.join(self.save_dir, f"mode_{mode_index}_{name}.avi")
-        #frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-        #height, width, layers = frame.shape
-        #video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-        #for image in image_list:
-        #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
-        #cv2.destroyAllWindows()
-        #video.release()
+        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        height, width, layers = frame.shape
+        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        for image in image_list:
+            video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        cv2.destroyAllWindows()
+        video.release()
 
 
     def plot_multiple_mode_reconstruction(self, ds_idx, mode_indices, plot_negative=False):
@@ -783,13 +783,13 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
         video_name = os.path.join(self.save_dir, f"mode_{mode_indices}_{name}.avi")
-        #frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
-        #height, width, layers = frame.shape
-        #video = cv2.VideoWriter(video_name, 0, 24, (width,height))
-        #for image in image_list:
-        #    video.write(cv2.imread(os.path.join(self.save_dir, image)))
-       # cv2.destroyAllWindows()
-        #video.release()
+        frame = cv2.imread(os.path.join(self.save_dir, image_list[0]))
+        height, width, layers = frame.shape
+        video = cv2.VideoWriter(video_name, 0, 24, (width,height))
+        for image in image_list:
+            video.write(cv2.imread(os.path.join(self.save_dir, image)))
+        cv2.destroyAllWindows()
+        video.release()
     
     def single_cycle(self, mode_idx):
         
@@ -997,7 +997,8 @@ if __name__ == "__main__":
     #analysis.plot_dynamics()
     #analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    #analysis.plot_full_streamplot(u_ds_indices=[], v_ds_indices=[], p_ds_indices=[0], mode_index=19)
+    analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=12)
+    #analysis.plot_multiple_mode_reconstruction(ds_idx=0,mode_indices=[19,21])
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
