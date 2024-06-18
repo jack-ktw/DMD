@@ -967,8 +967,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_100"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\HankelDMD-update_100"
 
     max_level = 6
     max_cycles = 4
@@ -997,7 +997,7 @@ if __name__ == "__main__":
     analysis.plot_dynamics()
     #analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
-    #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=12)
+    analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=17)
     #analysis.plot_multiple_mode_reconstruction(ds_idx=0,mode_indices=[19,21])
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
