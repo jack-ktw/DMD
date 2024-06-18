@@ -834,8 +834,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\sensitivity-analysis"
 
     max_level = 6
     max_cycles = 4
