@@ -141,7 +141,26 @@ class DMDAnalysisBase:
             ds_indices = range(len(self.datasets))
         for i in ds_indices:
             self.datasets[i].normalize_data()
-            
+    
+    def normalize_group(self, ds_indices):
+        data = np.empty((0,1))
+        original_shape_L = []
+        for idx in ds_indices:
+            original_shape_L.append(self.datasets[idx].data_array.shape)
+            data = np.vstack([data, self.datasets[idx].data_array.flatten().reshape(-1, 1)])
+        scaler = preprocessing.RobustScaler(with_centering=False)
+        scaler.fit(data)
+        print("Normalizing group:", [self.datasets[idx].name for idx in ds_indices])
+        print("Mean:", scaler.center_)
+        print("Scale:", scaler.scale_)
+        transformed_data = scaler.transform(data)
+        start_idx = 0
+        for i, idx in enumerate(ds_indices):
+            end_idx = start_idx + self.datasets[idx].data_array.size
+            self.datasets[idx].data_array = transformed_data[start_idx:end_idx, :].reshape(original_shape_L[i])
+            self.datasets[idx].scaler = scaler
+            start_idx = end_idx
+    
     def compose_data(self, ds_indices=None):
         if ds_indices is None:
             ds_indices = range(len(self.datasets))
@@ -835,7 +854,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             gc.collect()
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\sensitivity-analysis"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\sensitivity-analysis_flowfield"
 
     max_level = 6
     max_cycles = 4
@@ -845,10 +864,10 @@ if __name__ == "__main__":
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p1"]
-    is_building_li = [False]
-    relative_paths = [r"p.csv"]
-    coords_relative_paths = [r"coords.csv"]
+    names = ["p", "ux1", "uy1", "ux2", "uy2", "ux3", "uy3"]
+    is_building_li = [False, False, False, False, False, False, False]
+    relative_paths = [r"p/p.csv", "1/ux1.csv", "1/uy1.csv", "2/ux2.csv", "2/uy2.csv", "3/ux3.csv", "3/uy3.csv"]
+    coords_relative_paths = [r"p/coords.csv", "1/coords1.csv", -1, "2/coords2.csv", -1, "3/coords3.csv", -1]
 
     # num_snapshots_list = [1000, 750, 500, 300, 200, 100, 50]
 
@@ -877,7 +896,7 @@ if __name__ == "__main__":
     num_snapshots_list = [50, 100, 200, 300, 400, 500, 800, 1000]
     average_errors_dict = {}
 
-    delay_lengths = [1, 10, 20, 30, 40]
+    delay_lengths = [1, 10, 20, 30]
     average_errors_dict = {}
 
     plt.figure(figsize=(10, 6))
@@ -889,11 +908,14 @@ if __name__ == "__main__":
             analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
             analysis.make_save_dir()
             analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-            analysis.trim_datasets(t1=0, t2=N, i1=0, i2=None, ds_indices=[0])
+            analysis.trim_datasets(t1=1001, t2=1001+N, i1=0, i2=None, ds_indices=[0])
+            analysis.trim_datasets(t1=0, t2=N, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
             #analysis.filter_datasets(x_lower=-0.5, ds_indices=[0, 1, 2, 3, 4, 5])
             analysis.demean_datasets()
-            analysis.normalize_datasets()
-            analysis.fit(ds_indices=[0])
+            #analysis.normalize_datasets()
+            analysis.normalize_group(ds_indices = [0])
+            analysis.normalize_group(ds_indices = [1,2,3,4,5,6])
+            analysis.fit(ds_indices=[0,1,2,3,4,5,6])
             analysis.save_dmd()
             #analysis.plot_timeseries([0, 50, 100, 200])
             average_error = analysis.calc_average_error(500)
