@@ -495,6 +495,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         print(n_j)
         print(start_i)
         print(end_i)
+        print("ds_idx:")
+        print(ds_idx)
         for mode_idx in range(modes.shape[1]):
             print(modes[start_i:end_i, mode_idx].shape)
             Z_all = abs(modes[:, mode_idx])
@@ -975,37 +977,38 @@ if __name__ == "__main__":
     max_cycles = 4
     svd_rank = 0.9
     tikhonov_regularization = 1e-7
-    delay_length = 10
+    delay_length = 30
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p", "ux1", "uy1", "ux2", "uy2", "ux3", "uy3"]
-    is_building_li = [False, False, False, False, False, False, False]
-    relative_paths = [r"p/p.csv", "1/ux1.csv", "1/uy1.csv", "2/ux2.csv", "2/uy2.csv", "3/ux3.csv", "3/uy3.csv"]
-    coords_relative_paths = [r"p/coords.csv", "1/coords1.csv", -1, "2/coords2.csv", -1, "3/coords3.csv", -1]
+    names = ["p", "ux1", "uy1", "p1", "ux2", "uy2", "p2", "ux3", "uy3", "p3"]
+    is_building_li = [False, False, False, False, False, False, False, False, False, False]
+    relative_paths = [r"p/p.csv", "1/ux1.csv", "1/uy1.csv", "1/p1.csv", "2/ux2.csv", "2/uy2.csv", "2/p2.csv", "3/ux3.csv", "3/uy3.csv", "3/p3.csv"]
+    coords_relative_paths = [r"p/coords.csv", "1/coords1.csv", -1, -1, "2/coords2.csv", -1, -1, "3/coords3.csv", -1, -1]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
     analysis.trim_datasets(t1=1001, t2=1102, i1=0, i2=None, ds_indices=[0])
     analysis.trim_datasets(t1=0, t2=101, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
+    analysis.trim_datasets(t1=0, t2=101, i1=2880, i2=None, ds_indices=[7,8,9])
     #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
     #analysis.normalize_datasets()
-    analysis.normalize_group(ds_indices = [0])
-    analysis.normalize_group(ds_indices = [1,2,3,4,5,6])
+    analysis.normalize_group(ds_indices = [0,3,6,9])
+    analysis.normalize_group(ds_indices = [1,2,4,5,7,8])
     #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0,1,2,3,4,5,6])
+    analysis.fit(ds_indices=[0,1,2,3,4,5,6,7,8,9])
     analysis.save_dmd()
     #analysis.load_dmd()
 
     analysis.plot_timeseries([0, 100, 200, 300, 400])
     analysis.plot_dynamics()
-    #analysis.plot_all_ds(plot_negative=True)
+    analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
     #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=16)
-    #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=6)
+    analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=9)
     #plot_eigs(analysis.dmd)
     #analysis.plot_multiple_mode_reconstruction(ds_idx=0,mode_indices=[19,21])
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=29)
+    analysis.plot_full_streamplot(u_ds_indices=[1, 4, 7], v_ds_indices=[2, 5, 8], p_ds_indices=[3, 6, 9], mode_index=9)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
     # %%
 
