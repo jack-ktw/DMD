@@ -20,6 +20,7 @@ from scipy.interpolate import griddata
 from matplotlib.ticker import MaxNLocator
 import cv2
 from pydmd.plotter import plot_eigs
+import pandas as pd
 
 matplotlib.use('Agg')
 
@@ -608,8 +609,17 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         pattern = os.path.join(self.save_dir, "amplitude_frequency.png")
         self.clean_up_figures(pattern)
         
+        csv_path = os.path.join(self.save_dir, "mode_data.csv")
+        
         mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
         mode_amplitudes = self.dmd.amplitudes
+        
+        df = pd.DataFrame({
+            'Mode Number': np.arange(1, len(mode_frequencies) + 1),
+            'Frequency (Hz)': mode_frequencies,
+            'Amplitude': np.abs(mode_amplitudes)
+        })
+        df.to_csv(csv_path, index=False)
         
         # Plot the amplitude vs frequency for each mode
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -971,31 +981,31 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\HankelDMD-update_flowfield_100"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\HankelDMD-update_pressure_100_full_rank"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.9
+    svd_rank = -1
     tikhonov_regularization = 1e-7
     delay_length = 30
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p", "ux1", "uy1", "p1", "ux2", "uy2", "p2", "ux3", "uy3", "p3"]
-    is_building_li = [False, False, False, False, False, False, False, False, False, False]
-    relative_paths = [r"p/p.csv", "1/ux1.csv", "1/uy1.csv", "1/p1.csv", "2/ux2.csv", "2/uy2.csv", "2/p2.csv", "3/ux3.csv", "3/uy3.csv", "3/p3.csv"]
-    coords_relative_paths = [r"p/coords.csv", "1/coords1.csv", -1, -1, "2/coords2.csv", -1, -1, "3/coords3.csv", -1, -1]
+    names = ["p"]
+    is_building_li = [False]
+    relative_paths = [r"p/p.csv"]
+    coords_relative_paths = [r"p/coords.csv"]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
     analysis.trim_datasets(t1=1001, t2=1102, i1=0, i2=None, ds_indices=[0])
-    analysis.trim_datasets(t1=0, t2=101, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
-    analysis.trim_datasets(t1=0, t2=101, i1=2880, i2=None, ds_indices=[7,8,9])
+    #analysis.trim_datasets(t1=0, t2=101, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
+    #analysis.trim_datasets(t1=0, t2=101, i1=2880, i2=None, ds_indices=[7,8,9])
     #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
     analysis.demean_datasets()
-    #analysis.normalize_datasets()
-    analysis.normalize_group(ds_indices = [0,3,6,9])
-    analysis.normalize_group(ds_indices = [1,2,4,5,7,8])
+    analysis.normalize_datasets()
+    #analysis.normalize_group(ds_indices = [0,3,6,9])
+    #analysis.normalize_group(ds_indices = [1,2,4,5,7,8])
     #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0,1,2,3,4,5,6,7,8,9])
+    analysis.fit(ds_indices=[0])
     analysis.save_dmd()
     #analysis.load_dmd()
 
@@ -1004,11 +1014,11 @@ if __name__ == "__main__":
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
     #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=16)
-    analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=9)
+    #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=10)
     #plot_eigs(analysis.dmd)
     #analysis.plot_multiple_mode_reconstruction(ds_idx=0,mode_indices=[19,21])
     #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
-    analysis.plot_full_streamplot(u_ds_indices=[1, 4, 7], v_ds_indices=[2, 5, 8], p_ds_indices=[3, 6, 9], mode_index=9)
+    #analysis.plot_full_streamplot(u_ds_indices=[1, 4, 7], v_ds_indices=[2, 5, 8], p_ds_indices=[3, 6, 9], mode_index=9)
     #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
     # %%
 
