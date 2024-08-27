@@ -15,12 +15,14 @@ from sklearn import preprocessing
 from pydmd import MrDMD, DMD, SpDMD, HankelDMD, FbDMD, BOPDMD, OptDMD, HAVOK
 from pydmd.plotter import plot_eigs_mrdmd, plot_eigs, plot_summary
 from pydmd.preprocessing.hankel import hankel_preprocessing
+from scipy.integrate import quad
 import time
 from scipy.interpolate import griddata
 from matplotlib.ticker import MaxNLocator
 import cv2
 from pydmd.plotter import plot_eigs
 import pandas as pd
+import math
 
 matplotlib.use('Agg')
 
@@ -441,6 +443,19 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
+
+    def plot_timeseries_single_mode(self, idx_li, mode_index):
+        pdata = self.get_single_mode_reconstruction(mode_index)
+        for idx in idx_li:
+            fig_name = f"timeseries_{idx}_mode_{mode_index}"
+            plt.figure(figsize=(12, 8))
+            plt.plot(pdata[idx, :], alpha=0.7, label=f"Mode {mode_index}")
+            plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
+            # plt.ylim([-1.1, 1.1])
+            plt.legend()
+            plt.title(fig_name)
+            plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
+            plt.close()
             
     def plot_dynamics(self):
         pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
@@ -492,6 +507,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         print("Saving to:", self.save_dir)
         modes = self.get_original_modes()
         eigs = self.dmd.eigs
+        energies = self.rank_modes()
         print(n_i)
         print(n_j)
         print(start_i)
@@ -513,21 +529,25 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             if plot_negative:
                 phase = np.angle(modes_select)
                 Z[phase < 0] = -Z[phase < 0]
-                # Z[phase > np.pi] = -Z[phase > np.pi]
                 vmin = -vmax
                 cmap="RdBu"
-            # Z = np.linalg.norm(pmodes_select)
             
             freq = np.log(eigs[mode_idx]).imag / (2 * np.pi * self.dt)
-            grow = eigs[mode_idx].real
-
+            grow = np.log(eigs[mode_idx]).real / self.dt
+            energy = energies[mode_idx]
+    
             fig = plt.figure(figsize=(8, 6))
             ax = plt.subplot(111)
             levels = np.linspace(vmin, vmax, 20)
             CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
             colorbar = plt.colorbar(CS)
-            ax.set_title(f"mode:{mode_idx}, {name}, {freq:.1f} Hz, g:{grow:.2f}")
+            ax.set_title(f"mode:{mode_idx}, {name}, {freq:.1f} Hz, g:{grow:.2f}, e:{energy}")
             ax.set_aspect("equal")
+            
+            # Adding coordinate index number at each coordinate
+            for i in range(n_j):
+                for j in range(n_i):
+                    ax.text(X[j], Y[i], f'{i*n_i + j}', color='black', fontsize=6, ha='center', va='center')
             
             if is_building:
                 line_value = 0.5 * 2/3
@@ -535,8 +555,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                 ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
                 ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
                 ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
-
-            plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_idx}_{name}_{freq:.1f}Hz.png"))
+    
+            plt.savefig(os.path.join(self.save_dir, f"2_modeshape_{mode_idx}_{name}_{freq:.1f}Hz.png"))
             plt.close(fig)
             plt.cla()
             plt.clf()
@@ -671,7 +691,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         modes = self.get_original_modes()
         selected_mode = modes[:, mode_index]
         selected_dynamics = self.dmd.dynamics[mode_index]
-        return np.outer(selected_mode, selected_dynamics)
+        selected_amplitude = self.dmd.amplitudes[mode_index]
+        return selected_amplitude * np.outer(selected_mode, selected_dynamics)
 
     def plot_single_mode_reconstruction(self, ds_idx, mode_index, plot_negative=False):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
@@ -973,15 +994,87 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 
+    def rank_modes(self):
+        modes = self.get_original_modes()
+        eigs = self.dmd.eigs
+        amplitudes = self.dmd.amplitudes
+        x1 = 2  # Lower bound
+        #x2 = self.datasets[0].data_array.shape[0] * self.dt  # Upper bound
+        x2 = 5
+        energies = []
+        for mode_idx in range(modes.shape[1]):
+            a = np.abs(amplitudes[mode_idx])  # Amplitude
+            w = np.log(eigs[mode_idx]).imag / (self.dt)  # Frequency
+            g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
+            print(mode_idx)
+            print(g)
+            
+            def E(t):
+                return 0.5 * (a**2) * np.exp(g * t) * np.sum((abs(modes[mode_idx]))**2)
+            
+            energy, error = quad(E, x1, x2) 
+            energies.append(energy)
+            
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(modes.shape[1]), energies, 'o-', label='Energy')
+        plt.xlabel('Mode Index')
+        plt.ylabel('Energy')
+        plt.title('Energy vs Mode Index')
+        plt.xticks(range(modes.shape[1]))
+        plt.grid(True)
+        plt.legend()
+        plt.savefig(os.path.join(self.save_dir, "energies.png"))
+        
+        return energies
 
+    def rank_modes_over_time(self):
+        modes = self.get_original_modes()
+        eigs = self.dmd.eigs
+        amplitudes = self.dmd.amplitudes
+        x1 = 2  # Lower bound
+        energies_per_mode = []
+       # max_time = self.datasets[0].data_array.shape[0] * self.dt  # Maximum upper bound
+        max_time = 5
+    
+        for mode_idx in range(modes.shape[1]):
+            a = np.abs(amplitudes[mode_idx])  # Amplitude
+            w = np.log(eigs[mode_idx]).imag / (self.dt)  # Frequency
+            g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
+            
+            def E(t):
+                return 0.5 * (a**2) * np.exp(g * t) * np.sum((abs(modes[mode_idx]))**2)
+    
+            # Store energy values for increasing upper bounds
+            energies = []
+            upper_bounds = np.linspace(x1, max_time, num=100)
+            
+            for x2 in upper_bounds:
+                energy, error = quad(E, x1, x2)
+                energies.append(energy)
+            
+            energies_per_mode.append(energies)
+            
+            # Plot the energies as a function of upper bounds for this mode
+            plt.figure(figsize=(10, 6))
+            plt.plot(upper_bounds, energies, label=f'Mode {mode_idx}')
+            plt.xlabel('Upper Bound of Integration')
+            plt.ylabel('Energy')
+            plt.title(f'Energy vs Upper Bound of Integration for Mode {mode_idx}')
+            plt.grid(True)
+            plt.legend()
+            plt.savefig(os.path.join(self.save_dir, f"energy_mode_{mode_idx}.png"))
+            
+        return energies_per_mode
+        
+            
         
         
          
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\HankelDMD-update_pressure_100_full_rank"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update_pressure_400_full_rank"
 
     max_level = 6
     max_cycles = 4
@@ -990,13 +1083,12 @@ if __name__ == "__main__":
     delay_length = 30
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
-
     names = ["p"]
     is_building_li = [False]
-    relative_paths = [r"p/p.csv"]
-    coords_relative_paths = [r"p/coords.csv"]
+    relative_paths = [r"p.csv"]
+    coords_relative_paths = [r"coords.csv"]
     analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=1001, t2=1102, i1=0, i2=None, ds_indices=[0])
+    analysis.trim_datasets(t1=1001, t2=1402, i1=0, i2=None, ds_indices=[0])
     #analysis.trim_datasets(t1=0, t2=101, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
     #analysis.trim_datasets(t1=0, t2=101, i1=2880, i2=None, ds_indices=[7,8,9])
     #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
@@ -1008,8 +1100,10 @@ if __name__ == "__main__":
     analysis.fit(ds_indices=[0])
     analysis.save_dmd()
     #analysis.load_dmd()
-
+    energies = analysis.rank_modes()
+    energies_per_mode = analysis.rank_modes_over_time()
     analysis.plot_timeseries([0, 100, 200, 300, 400])
+    analysis.plot_timeseries_single_mode([395], 0 )
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
