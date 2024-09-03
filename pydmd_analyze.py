@@ -691,8 +691,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         modes = self.get_original_modes()
         selected_mode = modes[:, mode_index]
         selected_dynamics = self.dmd.dynamics[mode_index]
-        selected_amplitude = self.dmd.amplitudes[mode_index]
-        return selected_amplitude * np.outer(selected_mode, selected_dynamics)
+        return np.outer(selected_mode, selected_dynamics)
 
     def plot_single_mode_reconstruction(self, ds_idx, mode_index, plot_negative=False):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
@@ -1065,6 +1064,19 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.savefig(os.path.join(self.save_dir, f"energy_mode_{mode_idx}.png"))
             
         return energies_per_mode
+    
+    def reconstruct_high_energy_modes(self, number):
+        energies = self.rank_modes()
+        modes = self.get_original_modes()
+        
+        indexed_energies = list(enumerate(energies))
+        indexed_energies_sorted = sorted(indexed_energies, key=lambda x: x[1], reverse=True)
+        top_energies = indexed_energies_sorted[:number]
+        for index, energy in top_energies:
+            max_tap = np.argmax(np.abs(modes[:, index]))
+            self.plot_timeseries_single_mode([max_tap], index)
+            
+            
         
             
         
@@ -1102,8 +1114,10 @@ if __name__ == "__main__":
     #analysis.load_dmd()
     energies = analysis.rank_modes()
     energies_per_mode = analysis.rank_modes_over_time()
-    analysis.plot_timeseries([0, 100, 200, 300, 400])
-    analysis.plot_timeseries_single_mode([395], 0 )
+    analysis.reconstruct_high_energy_modes(10)
+    analysis.plot_timeseries([0, 100, 200, 278, 300, 400])
+    analysis.plot_timeseries_single_mode([395], 0)
+    analysis.plot_timeseries_single_mode([278], 169)
     analysis.plot_dynamics()
     analysis.plot_all_ds(plot_negative=True)
     analysis.plot_amplitude_frequency()
