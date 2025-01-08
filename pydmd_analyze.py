@@ -23,6 +23,7 @@ import cv2
 from pydmd.plotter import plot_eigs
 import pandas as pd
 import math
+from pydmd.plotter import plot_eigs, plot_summary
 
 matplotlib.use('Agg')
 
@@ -456,6 +457,21 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
+    
+    def plot_timeseries_multiple_mode(self, idx_li, mode_indices):
+        pdata = np.empty(self.get_single_mode_reconstruction(mode_indices[0]).shape, dtype=complex)
+        for mode_index in mode_indices:
+            pdata += self.get_single_mode_reconstruction(mode_index)
+        for idx in idx_li:
+            fig_name = f"timeseries_{idx}_mode_{len(mode_indices)}"
+            plt.figure(figsize=(12, 8))
+            plt.plot(pdata[idx, :], alpha=0.7, label=f"Mode {mode_indices}")
+            plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
+            # plt.ylim([-1.1, 1.1])
+            plt.legend()
+            plt.title(fig_name)
+            plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
+            plt.close()
             
     def plot_dynamics(self):
         pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
@@ -496,7 +512,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         coords_array = self.datasets[ds_idx].get_coords()
         n_i = len(np.unique(coords_array[:, 0]))
         n_j = len(np.unique(coords_array[:, 1]))
-        print("n_i:", n_i)
         name = self.datasets[ds_idx].name
         is_building = self.datasets[ds_idx].is_building
         
@@ -508,14 +523,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         modes = self.get_original_modes()
         eigs = self.dmd.eigs
         energies = self.rank_modes()
-        print(n_i)
-        print(n_j)
-        print(start_i)
-        print(end_i)
-        print("ds_idx:")
-        print(ds_idx)
         for mode_idx in range(modes.shape[1]):
-            print(modes[start_i:end_i, mode_idx].shape)
             Z_all = abs(modes[:, mode_idx])
             modes_select = modes[start_i:end_i, mode_idx].reshape(n_j, n_i)
             X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
@@ -682,7 +690,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         for ds_idx in self.ds_idx_to_trainX_idx:
             start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
-            print(self.ds_idx_to_trainX_idx)
             modes[start_i:end_i] *= self.datasets[ds_idx].scaler.scale_
         
         return modes
@@ -827,14 +834,12 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     def single_cycle(self, mode_idx):
         
         frequency = np.log(self.dmd.eigs[mode_idx]).imag / (2 * np.pi * self.dt)
-        print(frequency)
         mode = self.get_single_mode_reconstruction(mode_idx)
         #mode2 = self.get_single_mode_reconstruction(41)
        # mode3 = self.get_single_mode_reconstruction(43)
         #mode = mode + mode2 + mode3
         # Calculate number of timesteps per cycle
         timesteps_per_cycle = int(1 / frequency / self.dt)
-        print("timesteps per cycle: ", timesteps_per_cycle)
         
         # Slice the first cycle, TODO: move slice to where pressure tap is at peak
         single_cycle = mode[:, :timesteps_per_cycle]
@@ -862,7 +867,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         vmax = 2 * np.max(np.abs(mode[p_start_i:p_end_i, :].real))
         vmin = -vmax
         pressure_levels = np.linspace(vmin, vmax, 100)
-        print("vmax: ", vmax)
         
         for snapshot in range(mode.shape[1]):
             U = 2 * mode[u_start_i:u_end_i, snapshot].reshape(-1).real
@@ -993,47 +997,110 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 
-    def rank_modes(self):
+    def rank_modes_old(self):
         modes = self.get_original_modes()
         eigs = self.dmd.eigs
         amplitudes = self.dmd.amplitudes
-        x1 = 2  # Lower bound
-        #x2 = self.datasets[0].data_array.shape[0] * self.dt  # Upper bound
-        x2 = 5
+        x2 = self.datasets[0].data_array.shape[0] * self.dt  # Upper bound
+        x1 = x2 / 2  # Lower bound
+        #x2 = 5
         energies = []
         for mode_idx in range(modes.shape[1]):
             a = np.abs(amplitudes[mode_idx])  # Amplitude
             w = np.log(eigs[mode_idx]).imag / (self.dt)  # Frequency
             g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
-            print(mode_idx)
-            print(g)
             
             def E(t):
-                return 0.5 * (a**2) * np.exp(g * t) * np.sum((abs(modes[mode_idx]))**2)
+                return 0.5 * (a**2) * np.exp(2 * g * t) * np.sum((abs(modes[:, mode_idx]))**2)
             
             energy, error = quad(E, x1, x2) 
             energies.append(energy)
             
-        plt.figure(figsize=(10, 6))
-        plt.plot(range(modes.shape[1]), energies, 'o-', label='Energy')
-        plt.xlabel('Mode Index')
-        plt.ylabel('Energy')
-        plt.title('Energy vs Mode Index')
-        plt.xticks(range(modes.shape[1]))
-        plt.grid(True)
-        plt.legend()
-        plt.savefig(os.path.join(self.save_dir, "energies.png"))
+        #plt.figure(figsize=(10, 6))
+        #plt.plot(range(modes.shape[1]), energies, 'o-', label='Energy')
+        #plt.xlabel('Mode Index')
+        #plt.ylabel('Energy')
+        #plt.title('Energy vs Mode Index')
+        #plt.xticks(range(modes.shape[1]))
+        #plt.grid(True)
+        #plt.legend()
+        #plt.savefig(os.path.join(self.save_dir, "energies.png"))
         
         return energies
+    
+    def rank_modes(self):
+        """
+        Computes the energy contributions of DMD modes in their original order.
+    
+        Parameters:
+        -----------
+    
+        Returns:
+        --------
+        contributions : list
+            Contributions of the DMD modes in their original order.
+        """
+        # Retrieve modes, eigenvalues, and amplitudes
+        modes = self.get_original_modes()
+        eigs = self.dmd.eigs
+        amplitudes = self.dmd.amplitudes
+        N = self.dmd.dynamics.shape[1]  # Number of time steps
+    
+        # Compute the Frobenius norm of each mode (spatial structure)
+        phi_norms_squared = np.linalg.norm(modes, axis=0)**2
+    
+        # Calculate the contribution of each mode
+        contributions = []
+        for j, (alpha_j, mu_j) in enumerate(zip(amplitudes, eigs)):
+            # Time evolution factor
+            time_evolution = sum(abs(alpha_j * (mu_j**(i - 1))) for i in range(1, N + 1))
+            # Contribution
+            contribution = time_evolution * phi_norms_squared[j] * self.dt
+            contributions.append(contribution)
+    
+        return contributions
+
+    def rank_modes_1(self):
+        """
+        Computes the energy contributions of DMD modes using the given formula, in their original order.
+    
+        Parameters:
+        -----------
+        delta_t : float, optional
+            Time step size of the dataset. Default is 0.1.
+    
+        Returns:
+        --------
+        contributions : list
+            Contributions of the DMD modes in their original order.
+        """
+        # Retrieve modes, eigenvalues, and dynamics
+        modes = self.get_original_modes()
+        eigs = self.dmd.eigs
+        N = self.dmd.dynamics.shape[1]  # Number of time steps
+    
+        # Compute the Frobenius norm of each mode (spatial structure)
+        phi_norms_squared = np.linalg.norm(modes, axis=0)**2
+    
+        # Calculate the contribution of each mode
+        contributions = []
+        for j, lambda_j in enumerate(eigs):
+            # Time evolution factor
+            time_evolution = sum(abs(lambda_j**(i - 1)) for i in range(1, N + 1))
+            # Contribution
+            contribution = time_evolution * phi_norms_squared[j] * self.dt
+            contributions.append(contribution)
+    
+        return contributions
 
     def rank_modes_over_time(self):
         modes = self.get_original_modes()
         eigs = self.dmd.eigs
         amplitudes = self.dmd.amplitudes
-        x1 = 2  # Lower bound
         energies_per_mode = []
-       # max_time = self.datasets[0].data_array.shape[0] * self.dt  # Maximum upper bound
-        max_time = 5
+        max_time = self.datasets[0].data_array.shape[0] * self.dt  # Maximum upper bound
+        x1 = max_time / 2
+        #max_time = 5
     
         for mode_idx in range(modes.shape[1]):
             a = np.abs(amplitudes[mode_idx])  # Amplitude
@@ -1041,7 +1108,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
             
             def E(t):
-                return 0.5 * (a**2) * np.exp(g * t) * np.sum((abs(modes[mode_idx]))**2)
+                return 0.5 * (a**2) * np.exp(2 * g * t) * np.sum((abs(modes[:, mode_idx]))**2)
     
             # Store energy values for increasing upper bounds
             energies = []
@@ -1064,6 +1131,28 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.savefig(os.path.join(self.save_dir, f"energy_mode_{mode_idx}.png"))
             
         return energies_per_mode
+
+    def rank_modes_per_tap(self, tap):
+        modes = self.get_original_modes()
+        eigs = self.dmd.eigs
+        amplitudes = self.dmd.amplitudes
+        
+        max_time = self.datasets[0].data_array.shape[0] * self.dt  # Maximum upper bound
+        x1 = max_time / 2
+        energies = []
+        for mode_idx in range(modes.shape[1]):
+            a = np.abs(amplitudes[mode_idx])  # Amplitude
+            w = np.log(eigs[mode_idx]).imag / (self.dt)  # Frequency
+            g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
+            
+            def E(t):
+                return 0.5 * (a**2) * np.exp(2 * g * t) * np.sum((abs(modes[tap, mode_idx]))**2)
+    
+            
+            energy, error = quad(E, x1, max_time) 
+            energies.append(energy)
+            
+        return energies
     
     def reconstruct_high_energy_modes(self, number):
         energies = self.rank_modes()
@@ -1076,7 +1165,680 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             max_tap = np.argmax(np.abs(modes[:, index]))
             self.plot_timeseries_single_mode([max_tap], index)
             
+    def reconstruct_tap(self, index, number_of_modes):
+        energies = self.rank_modes_per_tap(index)
+        top_modes = np.argsort(energies)[-number_of_modes:][::-1].tolist()
+        self.plot_timeseries_multiple_mode([index], top_modes)
+        
+    def rank_modes_per_tap(self, tap):
+        modes = self.get_original_modes()
+        eigs = self.dmd.eigs
+        amplitudes = self.dmd.amplitudes
+        
+        max_time = self.datasets[0].data_array.shape[0] * self.dt  # Maximum upper bound
+        x1 = max_time / 2
+        energies = []
+        for mode_idx in range(modes.shape[1]):
+            a = np.abs(amplitudes[mode_idx])  # Amplitude
+            w = np.log(eigs[mode_idx]).imag / (self.dt)  # Frequency
+            g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
             
+            def E(t):
+                return 0.5 * (a**2) * np.exp(2 * g * t) * np.sum((abs(modes[tap, mode_idx]))**2)
+    
+            
+            energy, error = quad(E, x1, max_time) 
+            energies.append(energy)
+            
+        return energies
+    
+    def plot_energy_frequency(self, title, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}.png")
+        self.clean_up_figures(pattern)
+        
+        
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        mode_energies = self.rank_modes()
+        
+        df = pd.DataFrame({
+            'Mode Number': np.arange(1, len(mode_frequencies) + 1),
+            'Frequency (Hz)': mode_frequencies,
+            'Energy': np.abs(mode_energies)
+        })
+
+        # Save the DataFrame to a CSV file
+        csv_path = os.path.join(self.save_dir, "energy_frequency_data.csv")
+        df.to_csv(csv_path, index=False)
+        
+        # Plot the amplitude vs frequency for each mode
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for i in range(len(mode_frequencies)):
+            frequency = mode_frequencies[i]
+            if frequency > 0:  # Exclude negative frequencies
+                sc = ax.scatter(frequency,
+                                np.abs(mode_energies[i]),
+                                c=i+1, cmap='viridis', vmin=0, vmax=200, label=f"Mode {i+1}", s=50)
+                ax.text(frequency,
+                        np.abs(mode_energies[i]),
+                        str(i), ha='right', va='bottom', fontsize = 16)
+        
+        # Set the plot title and axis labels
+        #ax.set_title("DMD Mode Amplitudes vs Frequencies")
+        ax.set_xlabel("Frequency (Hz)", fontsize = 20)
+        ax.set_ylabel("Energy", fontsize = 20)
+        ax.set_xlim(0)
+        if xlim != 0:
+            ax.set_xlim(0,xlim)
+        
+        if ylim != 0:
+            ax.set_ylim(0,ylim)
+        
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+        
+        # Add a colorbar to the plot
+        norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
+        cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='viridis'), ax=ax)
+        cbar.set_label("Mode Number", fontsize = 20)
+        cbar.ax.tick_params(labelsize=16)
+        
+        plt.savefig(os.path.join(self.save_dir, f"{title}.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+        
+    def plot_cumulative_energy(self, title, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}.png")
+        self.clean_up_figures(pattern)
+        
+        # Calculate mode frequencies and energies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        mode_energies = self.rank_modes()
+    
+        # Create a DataFrame and sort by frequency
+        df = pd.DataFrame({
+            'Frequency (Hz)': mode_frequencies,
+            'Energy': np.abs(mode_energies)
+        }).sort_values(by='Frequency (Hz)').reset_index(drop=True)
+    
+        # Filter out negative frequencies
+        df = df[df['Frequency (Hz)'] > 0]
+    
+        # Calculate cumulative energy
+        df['Cumulative Energy'] = df['Energy'].cumsum()
+    
+        # Save the DataFrame to a CSV file
+        csv_path = os.path.join(self.save_dir, "cumulative_energy_data.csv")
+        df.to_csv(csv_path, index=False)
+        
+        # Plot cumulative energy vs frequency
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(df['Frequency (Hz)'], df['Cumulative Energy'], color='blue', lw=2)
+    
+        # Set the plot title and axis labels
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Cumulative Energy", fontsize=20)
+        ax.set_xlim(0)
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+        
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        # Save the plot
+        plt.savefig(os.path.join(self.save_dir, f"{title}.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+
+
+    def plot_combined_energy_frequency(self, title, csv_path1, csv_path2, xlim_max=None, ylim_max=None):
+        # Read the data from the two CSV files
+        df1 = pd.read_csv(csv_path1)
+        df2 = pd.read_csv(csv_path2)
+        
+        # Filter out rows with negative frequencies without changing the indexing
+        df1 = df1[df1['Frequency (Hz)'] > 0]
+        df2 = df2[df2['Frequency (Hz)'] > 0]
+        
+        # Create a figure and axis for the plot
+        fig, ax = plt.subplots(figsize=(8, 6))
+        
+        # Plot the first dataset
+        sc1 = ax.scatter(df1['Frequency (Hz)'], df1['Energy'], 
+                         color='blue', label='WT', s=50)
+        
+        # Annotate points with their original mode numbers for the first dataset
+        for i, row in df1.iterrows():
+            mode_number = int(row['Mode Number']) - 1  # Keep the original mode number
+        
+        # Plot the second dataset
+        sc2 = ax.scatter(df2['Frequency (Hz)'], df2['Energy'], 
+                         color='orange', label='CFD', s=50)
+        
+        # Annotate points with their original mode numbers for the second dataset
+        for i, row in df2.iterrows():
+            mode_number = int(row['Mode Number']) - 1  # Keep the original mode number
+        
+        # Set the plot title and axis labels
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Energy", fontsize=20)
+        
+        # Set the x and y limits based on provided values or auto-calculated ones
+        xlim = xlim_max if xlim_max is not None else max(df1['Frequency (Hz)'].max(), df2['Frequency (Hz)'].max()) + 5
+        ylim = ylim_max if ylim_max is not None else max(df1['Energy'].max(), df2['Energy'].max()) + 5
+        
+        ax.set_xlim(0, xlim)
+        ax.set_ylim(0, ylim)
+        
+        # Add a legend to distinguish between the datasets
+        ax.legend(fontsize=16)
+        
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+        
+        # Save the plot as a PNG file
+        plot_path = os.path.join(save_dir, f"{title}.png")
+        plt.savefig(plot_path)
+        plt.close(fig)
+        
+    def plot_summed_energy_groups(self, title, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}.png")
+        self.clean_up_figures(pattern)
+    
+        # Calculate mode frequencies and energies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        mode_energies = self.rank_modes()
+    
+        # Create a DataFrame and filter for positive frequencies
+        df = pd.DataFrame({
+            'Frequency (Hz)': mode_frequencies,
+            'Energy': np.abs(mode_energies)
+        }).sort_values(by='Frequency (Hz)').reset_index(drop=True)
+        
+        # Filter out negative frequencies
+        df = df[df['Frequency (Hz)'] > 0]
+    
+        # Define specific bins for frequency groups: 0-1 Hz, 1-20 Hz, and 20+ Hz
+        bins = [0, 5, 20, df['Frequency (Hz)'].max() + 1]
+        labels = ['0-5 Hz', '5-20 Hz', '20+ Hz']
+        
+        # Bin the frequencies into the specified groups
+        df['Group'] = pd.cut(df['Frequency (Hz)'], bins=bins, labels=labels, right=False)
+    
+        # Calculate the summed energy for each group
+        summed_energy = df.groupby('Group')['Energy'].sum().reset_index()
+    
+        # Save the DataFrame to a CSV file
+        csv_path = os.path.join(self.save_dir, "summed_energy_groups.csv")
+        summed_energy.to_csv(csv_path, index=False)
+    
+        # Plot summed energy for each group
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.bar(summed_energy['Group'], summed_energy['Energy'], color='orange')
+    
+        # Set the plot title and axis labels
+        ax.set_title("Summed Energy for Each Frequency Group", fontsize=20)
+        ax.set_xlabel("Frequency Group", fontsize=20)
+        ax.set_ylabel("Summed Energy", fontsize=20)
+    
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        # Save the plot
+        plt.savefig(os.path.join(self.save_dir, f"{title}.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+        
+    def plot_summed_energy_groups_comparison(self, title, xlim=0, ylim=0):
+        """
+        Plots summed energy groups for each ranking method with separate y-axis scales, arranged side by side.
+        
+        Parameters:
+        -----------
+        title : str
+            Title of the plot and file name prefix.
+        xlim : float, optional
+            X-axis limit (default is 0 for no limit).
+        ylim : float, optional
+            Y-axis limit (applies globally if set; default is 0 for individual scales).
+        """
+        pattern = os.path.join(self.save_dir, f"{title}.png")
+        self.clean_up_figures(pattern)
+    
+        bins = [0, 5, 20, None]  # Frequency bins
+        labels = ['0-5 Hz', '5-20 Hz', '20+ Hz']
+    
+        results = {}  # Store results for each method
+        for method in ["rank_modes", "rank_modes_1", "rank_modes_old"]:
+            if hasattr(self, method):
+                # Calculate mode frequencies and energies
+                mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+                mode_energies = getattr(self, method)()
+    
+                # Create a DataFrame and filter for positive frequencies
+                df = pd.DataFrame({
+                    'Frequency (Hz)': mode_frequencies,
+                    'Energy': np.abs(mode_energies)
+                }).sort_values(by='Frequency (Hz)').reset_index(drop=True)
+                df = df[df['Frequency (Hz)'] > 0]
+    
+                # Bin the frequencies into groups
+                df['Group'] = pd.cut(
+                    df['Frequency (Hz)'],
+                    bins=[0, 5, 20, df['Frequency (Hz)'].max() + 1],
+                    labels=labels,
+                    right=False
+                )
+    
+                # Calculate summed energy for each group
+                summed_energy = df.groupby('Group')['Energy'].sum().reset_index()
+                results[method] = summed_energy.set_index('Group')['Energy']
+    
+        # Combine results into a DataFrame for saving
+        combined_results = pd.DataFrame(results).fillna(0)
+    
+        # Save the DataFrame to a CSV file
+        csv_path = os.path.join(self.save_dir, "summed_energy_groups_comparison.csv")
+        combined_results.to_csv(csv_path, index_label="Frequency Group")
+        print(f"Summed energy groups comparison saved to {csv_path}")
+    
+        # Plot the results side by side
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        width = 0.5  # Width of each bar
+    
+        for i, (method, ax) in enumerate(zip(results.keys(), axes)):
+            # Bar plot for each ranking method
+            ax.bar(labels, combined_results[method], width, label=method, color=f"C{i}")
+            ax.set_title(method, fontsize=14)
+            ax.set_xlabel("Frequency Group", fontsize=12)
+            if i == 0:
+                ax.set_ylabel("Summed Energy", fontsize=12)
+            ax.grid(axis='y', linestyle='--', alpha=0.7)
+            ax.tick_params(axis='x', rotation=45)
+    
+            # Set individual y-axis limits
+            if ylim == 0:
+                ax.set_ylim(0, combined_results[method].max() * 1.1)
+            else:
+                ax.set_ylim(0, ylim)
+    
+        # Adjust layout and save the figure
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, f"{title}_comparison_individual_scales.png"))
+        plt.close(fig)
+        print(f"Comparison plot with individual scales saved to {os.path.join(self.save_dir, f'{title}_comparison_individual_scales.png')}")
+
+    def plot_dmd_eigenvalues(self, title="dmd_eigenvalues"):
+        """
+        Plots the DMD eigenvalues on the complex plane with the unit circle.
+
+        Parameters:
+        - title: Title for the plot and filename.
+        """
+        # Extract eigenvalues
+        eigenvalues = self.dmd.eigs
+
+        # Create a unit circle
+        theta = np.linspace(0, 2 * np.pi, 500)
+        unit_circle = np.exp(1j * theta)
+
+        # Plot setup
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.plot(unit_circle.real, unit_circle.imag, 'r--', label="Unit Circle")  # Unit circle
+        ax.scatter(eigenvalues.real, eigenvalues.imag, color='blue', label="DMD Eigenvalues")  # DMD eigenvalues
+
+        # Formatting the plot
+        ax.axhline(0, color='black', linewidth=0.8, linestyle='--')  # Real axis
+        ax.axvline(0, color='black', linewidth=0.8, linestyle='--')  # Imaginary axis
+        ax.set_xlabel("Real Part", fontsize=14)
+        ax.set_ylabel("Imaginary Part", fontsize=14)
+        ax.set_title("DMD Eigenvalues on the Complex Plane", fontsize=16)
+        ax.legend(fontsize=12)
+        ax.grid(True, linestyle='--', alpha=0.7)
+        ax.axis('equal')  # Equal scaling for x and y axes
+
+        # Save the plot
+        plot_path = os.path.join(self.save_dir, f"{title}.png")
+        plt.savefig(plot_path)
+        plt.close(fig)
+        print(f"DMD eigenvalues plot saved to {plot_path}")
+        
+    def plot_mode_contributions(self, contributions, save_dir, filename="mode_contributions.png", title="Mode Contributions"):
+        """
+        Generates a bar plot of the contributions of DMD modes and saves it as an image file.
+    
+        Parameters:
+        -----------
+        contributions : list or numpy array
+            Contributions of the DMD modes.
+        save_dir : str
+            Directory where the image file will be saved.
+        filename : str, optional
+            The name of the saved image file. Default is "mode_contributions.png".
+        title : str, optional
+            Title of the plot. Default is "Mode Contributions".
+    
+        Returns:
+        --------
+        None
+        """
+        # Ensure contributions are a numpy array
+        contributions = np.array(contributions)
+        
+        # Generate x-axis labels (Mode indices)
+        mode_indices = np.arange(0, len(contributions))
+        
+        
+        # Create the bar plot
+        plt.figure(figsize=(10, 6))
+        plt.bar(mode_indices, contributions, color='skyblue', edgecolor='black')
+        
+        # Add labels and title
+        plt.xlabel("Mode Index")
+        plt.ylabel("Contribution")
+        plt.title(title)
+        plt.xticks(mode_indices)
+        
+        # Show grid for better readability
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        
+        # Ensure the save directory exists
+        os.makedirs(save_dir, exist_ok=True)
+        
+        # Save the plot as an image
+        save_path = os.path.join(save_dir, filename)
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()  # Close the plot to free up memory
+    
+        print(f"Plot saved to: {save_path}")
+
+    def plot_contribution_vs_frequency_separate(self, filename="contribution_vs_frequency_separate.png", title="Contribution vs Frequency Comparison"):
+        """
+        Generates separate scatter plots of DMD mode contributions vs frequencies for each ranking method
+        and saves them side by side in a single image file.
+        
+        Parameters:
+        -----------
+        filename : str, optional
+            The name of the saved image file. Default is "contribution_vs_frequency_separate.png".
+        title : str, optional
+            Title of the plot. Default is "Contribution vs Frequency Comparison".
+        
+        Returns:
+        --------
+        None
+        """
+        # Define ranking methods and plot titles
+        ranking_methods = ["rank_modes", "rank_modes_1", "rank_modes_old"]
+        plot_titles = {
+            "rank_modes": "Rank Modes",
+            "rank_modes_1": "Rank Modes 1",
+            "rank_modes_old": "Rank Modes Old"
+        }
+    
+        # Calculate mode frequencies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        
+        # Set up the figure and axes
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=False)  # Separate scales, shared y-axis off
+        
+        for i, method in enumerate(ranking_methods):
+            if hasattr(self, method):
+                contributions = getattr(self, method)()
+                contributions = np.array(contributions)
+    
+                # Filter out negative frequencies
+                positive_indices = mode_frequencies > 0
+                positive_frequencies = mode_frequencies[positive_indices]
+                positive_contributions = contributions[positive_indices]
+        
+                # Plot on the corresponding axis
+                ax = axes[i]
+                ax.scatter(
+                    positive_frequencies,
+                    positive_contributions,
+                    color='skyblue',
+                    edgecolor='black',
+                    s=50
+                )
+        
+                # Set labels and title
+                ax.set_title(plot_titles[method], fontsize=14)
+                ax.set_xlabel("Frequency (Hz)", fontsize=12)
+                ax.set_ylabel("Contribution", fontsize=12)
+                ax.grid(linestyle='--', alpha=0.7)
+        
+        # Add a global title
+        fig.suptitle(title, fontsize=16)
+        
+        # Adjust layout to fit titles and save the plot
+        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the global title
+        save_path = os.path.join(self.save_dir, filename)
+        os.makedirs(self.save_dir, exist_ok=True)
+        plt.savefig(save_path)
+        plt.close()  # Free memory
+        
+        print(f"Side-by-side scatter plots excluding negative frequencies saved to: {save_path}")
+            
+
+def collect_and_average_energy(data_dir, save_dir, start, end, window_size, step, params):
+    """
+    Collects summed energy groups for multiple overlapping time periods, averages them,
+    and creates an averaged graph.
+
+    Parameters:
+    - data_dir: Path to the dataset directory.
+    - save_dir: Path to save results and plots.
+    - start: Start time for the first window.
+    - end: End time for the last window.
+    - window_size: Size of each time window.
+    - step: Step size for shifting the time window.
+    - params: Dictionary containing parameters for HankelDMDAnalysis (e.g., svd_rank, delay_length).
+    """
+    all_summed_energies = []
+    bins = ['0-5 Hz', '5-20 Hz', '20+ Hz']  # Ensure consistent bin labels
+
+    for t1 in range(start, end - window_size + 1, step):
+        t2 = t1 + window_size
+        print(f"Processing time window: t1={t1}, t2={t2}")
+
+        try:
+            # Create a new HankelDMDAnalysis object for each iteration
+            analysis = HankelDMDAnalysis(
+                data_dir=data_dir,
+                save_dir=save_dir,
+                svd_rank=params['svd_rank'],
+                delay_length=params['delay_length']
+            )
+
+            # Prepare the analysis
+            analysis.make_save_dir()
+            names = ["p"]
+            is_building_li = [False]
+            relative_paths = [r"p.csv"]
+            coords_relative_paths = [r"coords.csv"]
+            analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
+
+            # Trim datasets for this time window
+            analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0])
+
+            # Process datasets
+            analysis.demean_datasets()
+            analysis.normalize_datasets()
+            analysis.fit(ds_indices=[0])
+
+            # Compute summed energy groups
+            mode_frequencies = np.log(analysis.dmd.eigs).imag / (2 * np.pi * analysis.dt)
+            mode_energies = analysis.rank_modes()
+            df = pd.DataFrame({
+                'Frequency (Hz)': mode_frequencies,
+                'Energy': np.abs(mode_energies)
+            }).sort_values(by='Frequency (Hz)').reset_index(drop=True)
+            df = df[df['Frequency (Hz)'] > 0]
+
+            df['Group'] = pd.cut(
+                df['Frequency (Hz)'], bins=[0, 5, 20, df['Frequency (Hz)'].max() + 1],
+                labels=bins, right=False
+            )
+
+            summed_energy = df.groupby('Group')['Energy'].sum()
+            all_summed_energies.append(summed_energy)
+
+        except ValueError as e:
+            print(f"Error processing window t1={t1}, t2={t2}: {e}")
+            continue
+
+    # Create a DataFrame from the collected data and compute the average
+    if not all_summed_energies:
+        print("No valid data to average. Exiting.")
+        return
+
+    summed_energy_df = pd.DataFrame(all_summed_energies).fillna(0)  # Handle missing groups
+    averaged_energy = summed_energy_df.mean()
+
+    # Plot the averaged energy
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(averaged_energy.index, averaged_energy.values, color='blue')
+
+    # Set the plot title and axis labels
+    ax.set_title("Averaged Energy for Each Frequency Group", fontsize=20)
+    ax.set_xlabel("Frequency Group", fontsize=16)
+    ax.set_ylabel("Averaged Summed Energy", fontsize=16)
+    ax.tick_params(axis='x', labelsize=14)
+    ax.tick_params(axis='y', labelsize=14)
+
+    # Save the plot
+    plot_path = os.path.join(save_dir, "averaged_energy_groups.png")
+    plt.savefig(plot_path)
+    plt.close(fig)
+    print(f"Averaged energy plot saved to {plot_path}")
+
+    # Save the averaged data to a CSV file
+    csv_path = os.path.join(save_dir, "averaged_energy_groups.csv")
+    averaged_energy.to_csv(csv_path, header=["Averaged Energy"], index_label="Frequency Group")
+    print(f"Averaged energy data saved to {csv_path}")
+    
+def collect_and_average_energy_with_rankings(data_dir, save_dir, start, end, window_size, step, params):
+    """
+    Collects summed energy groups for multiple overlapping time periods using three ranking methods,
+    averages them, and creates a side-by-side comparison plot.
+
+    Parameters:
+    -----------
+    data_dir : str
+        Path to the dataset directory.
+    save_dir : str
+        Path to save results and plots.
+    start : int
+        Start time for the first window.
+    end : int
+        End time for the last window.
+    window_size : int
+        Size of each time window.
+    step : int
+        Step size for shifting the time window.
+    params : dict
+        Dictionary containing parameters for HankelDMDAnalysis (e.g., svd_rank, delay_length).
+    """
+    # Initialize data structures for storing results
+    all_summed_energies = {"rank_modes": [], "rank_modes_1": [], "rank_modes_old": []}
+    bins = ['0-5 Hz', '5-20 Hz', '20+ Hz']  # Ensure consistent bin labels
+
+    for t1 in range(start, end - window_size + 1, step):
+        t2 = t1 + window_size
+        print(f"Processing time window: t1={t1}, t2={t2}")
+
+        try:
+            # Create a new HankelDMDAnalysis object for each iteration
+            analysis = HankelDMDAnalysis(
+                data_dir=data_dir,
+                save_dir=save_dir,
+                svd_rank=params['svd_rank'],
+                delay_length=params['delay_length']
+            )
+
+            # Prepare the analysis
+            analysis.make_save_dir()
+            names = ["p"]
+            is_building_li = [False]
+            relative_paths = [r"p.csv"]
+            coords_relative_paths = [r"coords.csv"]
+            analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
+
+            # Trim datasets for this time window
+            analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0])
+
+            # Process datasets
+            analysis.demean_datasets()
+            analysis.normalize_datasets()
+            analysis.fit(ds_indices=[0])
+
+            # Calculate mode frequencies
+            mode_frequencies = np.log(analysis.dmd.eigs).imag / (2 * np.pi * analysis.dt)
+
+            # Process each ranking method
+            for method in ["rank_modes", "rank_modes_1", "rank_modes_old"]:
+                if hasattr(analysis, method):
+                    mode_energies = getattr(analysis, method)()
+                    df = pd.DataFrame({
+                        'Frequency (Hz)': mode_frequencies,
+                        'Energy': np.abs(mode_energies)
+                    }).sort_values(by='Frequency (Hz)').reset_index(drop=True)
+                    df = df[df['Frequency (Hz)'] > 0]
+
+                    df['Group'] = pd.cut(
+                        df['Frequency (Hz)'], bins=[0, 5, 20, df['Frequency (Hz)'].max() + 1],
+                        labels=bins, right=False
+                    )
+
+                    summed_energy = df.groupby('Group')['Energy'].sum()
+                    all_summed_energies[method].append(summed_energy)
+
+        except ValueError as e:
+            print(f"Error processing window t1={t1}, t2={t2}: {e}")
+            continue
+
+    # Compute averages for each ranking method
+    averaged_energies = {}
+    for method, energies in all_summed_energies.items():
+        if energies:
+            summed_energy_df = pd.DataFrame(energies).fillna(0)  # Handle missing groups
+            averaged_energies[method] = summed_energy_df.mean()
+
+    # Plot the averaged energies side by side
+    fig, ax = plt.subplots(figsize=(10, 6))
+    width = 0.25  # Width of each bar
+    x = np.arange(len(bins))  # x positions for groups
+
+    for i, (method, averaged_energy) in enumerate(averaged_energies.items()):
+        ax.bar(x + i * width, averaged_energy.values, width, label=method)
+
+    # Add labels, title, and legend
+    ax.set_title("Averaged Energy for Each Frequency Group by Ranking Method", fontsize=16)
+    ax.set_xlabel("Frequency Group", fontsize=14)
+    ax.set_ylabel("Averaged Summed Energy", fontsize=14)
+    ax.set_xticks(x + width)
+    ax.set_xticklabels(bins)
+    ax.legend()
+
+    # Save the plot
+    plot_path = os.path.join(save_dir, "averaged_energy_comparison.png")
+    plt.tight_layout()
+    plt.savefig(plot_path)
+    plt.close(fig)
+    print(f"Averaged energy comparison plot saved to {plot_path}")
         
             
         
@@ -1085,49 +1847,47 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
             
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update_pressure_400_full_rank"
-
-    max_level = 6
-    max_cycles = 4
+    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
+    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank"
     svd_rank = -1
-    tikhonov_regularization = 1e-7
     delay_length = 30
-    analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
-    analysis.make_save_dir()
-    names = ["p"]
-    is_building_li = [False]
-    relative_paths = [r"p.csv"]
-    coords_relative_paths = [r"coords.csv"]
-    analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-    analysis.trim_datasets(t1=1001, t2=1402, i1=0, i2=None, ds_indices=[0])
-    #analysis.trim_datasets(t1=0, t2=101, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
-    #analysis.trim_datasets(t1=0, t2=101, i1=2880, i2=None, ds_indices=[7,8,9])
-    #analysis.filter_datasets(x_lower=-0.03, ds_indices=[0, 1, 2, 3, 4, 5])
-    analysis.demean_datasets()
-    analysis.normalize_datasets()
-    #analysis.normalize_group(ds_indices = [0,3,6,9])
-    #analysis.normalize_group(ds_indices = [1,2,4,5,7,8])
-    #analysis.compose_data(ds_indices=[0, 1, 4])
-    analysis.fit(ds_indices=[0])
-    analysis.save_dmd()
-    #analysis.load_dmd()
-    energies = analysis.rank_modes()
-    energies_per_mode = analysis.rank_modes_over_time()
-    analysis.reconstruct_high_energy_modes(10)
-    analysis.plot_timeseries([0, 100, 200, 278, 300, 400])
-    analysis.plot_timeseries_single_mode([395], 0)
-    analysis.plot_timeseries_single_mode([278], 169)
-    analysis.plot_dynamics()
-    analysis.plot_all_ds(plot_negative=True)
-    analysis.plot_amplitude_frequency()
-    #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=16)
-    #analysis.plot_single_mode_reconstruction(ds_idx=0,mode_index=10)
-    #plot_eigs(analysis.dmd)
-    #analysis.plot_multiple_mode_reconstruction(ds_idx=0,mode_indices=[19,21])
-    #.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=49)
-    #analysis.plot_full_streamplot(u_ds_indices=[1, 4, 7], v_ds_indices=[2, 5, 8], p_ds_indices=[3, 6, 9], mode_index=9)
-    #analysis.plot_full_streamplot(u_ds_indices=[0, 3, 6], v_ds_indices=[1, 4, 7], p_ds_indices=[2, 5, 8], mode_index=83)
+
+    # Define time windows and shifts
+    start_t1 = 1000
+    start_t2 = 1400
+    shift = 200
+    num_windows = 10  # Number of windows to process
+
+    for i in range(num_windows):
+        # Calculate the current time window
+        t1 = start_t1 + i * shift
+        t2 = start_t2 + i * shift
+        save_dir = f"{base_save_dir}_shift_{i * shift}"
+
+        print(f"Processing time window {t1}-{t2}, saving to {save_dir}")
+
+        # Initialize analysis object
+        analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
+        analysis.make_save_dir()
+        names = ["p"]
+        is_building_li = [False]
+        relative_paths = [r"p.csv"]
+        coords_relative_paths = [r"coords.csv"]
+        analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
+
+        # Trim datasets for this time window
+        analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0])
+        
+        # Process datasets
+        analysis.demean_datasets()
+        analysis.normalize_datasets()
+        analysis.fit(ds_indices=[0])
+        analysis.save_dmd()
+        analysis.plot_dmd_eigenvalues(title=f"dmd_eigenvalues_{t1}_{t2}")
+        analysis.plot_summed_energy_groups_comparison(f"energy_bins_{t1}_{t2}")
+        analysis.plot_contribution_vs_frequency_separate(filename=f"contribution_vs_frequency_{t1}_{t2}.png")
+
+    print("All time windows processed.")
     # %%
 
     # idx_li = dmd0.time_window_bins(0, 400)
