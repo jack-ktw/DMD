@@ -695,10 +695,88 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         return modes
     
     def get_single_mode_reconstruction(self, mode_index):
-        modes = self.get_original_modes()
+        modes = self.get_original_modes()  # Spatial modes (phi)
         selected_mode = modes[:, mode_index]
         selected_dynamics = self.dmd.dynamics[mode_index]
-        return np.outer(selected_mode, selected_dynamics)
+        eigenvalue = self.dmd.eigs[mode_index]
+    
+        # Incorporate the eigenvalue scaling
+        temporal_evolution = eigenvalue * selected_dynamics
+        return np.outer(selected_mode, temporal_evolution)
+
+    def calculate_agg_power(self, mode_index):
+        # Get the mode reconstruction matrix (rows: pressure taps, columns: timesteps)
+        reconstruction = self.get_single_mode_reconstruction(mode_index)
+        
+        # Compute the standard deviation along the time axis (axis=1 for rows)
+        std_devs = np.std(reconstruction, axis=1)
+        
+        # Compute the RMS of the standard deviations
+        agg_power = np.sqrt(np.mean(std_devs**2))
+        
+        return agg_power
+    
+    def calculate_agg_power_original_data(self):
+        orig_data = self.train_X.T  # Assuming self.train_X has shape (timesteps, pressure taps)
+        print(orig_data.shape)
+        # Compute the standard deviation across time (axis=1 means across columns/timesteps)
+        std_per_tap = np.std(orig_data, axis=1)
+    
+        # Compute the RMS across all pressure taps
+        agg_power = np.sqrt(np.mean(std_per_tap**2))
+    
+        return agg_power
+    
+    def categorize_and_compute_power(self):
+        # Extract the frequencies of the modes from self.dmd
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+    
+        # Initialize lists to hold the aggregate powers for each bin
+        bin_0_5hz = []
+        bin_5_20hz = []
+        bin_20hz_plus = []
+        
+        # Loop through the modes and their corresponding frequencies
+        for mode_index, freq in enumerate(mode_frequencies):
+            # Calculate the aggregate power for the current mode
+            agg_power = self.calculate_agg_power(mode_index)
+            
+            # Categorize the mode based on its frequency and add to the appropriate bin
+            if 0 <= freq <= 5:
+                bin_0_5hz.append(agg_power)
+            elif 5 < freq <= 20:
+                bin_5_20hz.append(agg_power)
+            elif freq > 20:
+                bin_20hz_plus.append(agg_power)
+        
+        # Calculate the RMS of the powers in each bin (only if there are powers in the bin)
+        def compute_rms(power_list):
+            if power_list:  # Ensure the list is not empty
+                return np.sqrt(np.sum(np.array(power_list)**2))
+            else:
+                return 0  # Return 0 if the bin is empty
+        
+        rms_0_5hz = compute_rms(bin_0_5hz)
+        rms_5_20hz = compute_rms(bin_5_20hz)
+        rms_20hz_plus = compute_rms(bin_20hz_plus)
+        
+        # Create a bar graph to show the power for each bin
+        bins = ['0-5 Hz', '5-20 Hz', '20+ Hz']
+        rms_values = [rms_0_5hz, rms_5_20hz, rms_20hz_plus]
+    
+        plt.figure(figsize=(8, 6))
+        plt.bar(bins, rms_values, color=['blue', 'orange', 'green'])
+        plt.title('RMS Power in Frequency Bins')
+        plt.xlabel('Frequency Range (Hz)')
+        plt.ylabel('RMS Power')
+        
+        # Save the figure as a PNG
+        image_path = os.path.join(self.save_dir, 'frequency_bin_rms_power.png') 
+        plt.savefig(image_path)
+        plt.close()
+        
+        return rms_0_5hz, rms_5_20hz, rms_20hz_plus
+        
 
     def plot_single_mode_reconstruction(self, ds_idx, mode_index, plot_negative=False):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
@@ -1002,16 +1080,17 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         eigs = self.dmd.eigs
         amplitudes = self.dmd.amplitudes
         x2 = self.datasets[0].data_array.shape[0] * self.dt  # Upper bound
-        x1 = x2 / 2  # Lower bound
+        #x1 = x2 / 2  # Lower bound
+        x1 = 0
         #x2 = 5
         energies = []
         for mode_idx in range(modes.shape[1]):
             a = np.abs(amplitudes[mode_idx])  # Amplitude
             w = np.log(eigs[mode_idx]).imag / (self.dt)  # Frequency
-            g = np.log(eigs[mode_idx]).real / (2 * np.pi * self.dt)  # Gamma
+            g = np.log(eigs[mode_idx]).real / (self.dt)  # Gamma
             
             def E(t):
-                return 0.5 * (a**2) * np.exp(2 * g * t) * np.sum((abs(modes[:, mode_idx]))**2)
+                return (a**2) * np.exp(2 * g * t) * np.sum((abs(modes[:, mode_idx]))**2)
             
             energy, error = quad(E, x1, x2) 
             energies.append(energy)
@@ -1566,16 +1645,16 @@ class HankelDMDAnalysis(DMDAnalysisBase):
 
     def plot_contribution_vs_frequency_separate(self, filename="contribution_vs_frequency_separate.png", title="Contribution vs Frequency Comparison"):
         """
-        Generates separate scatter plots of DMD mode contributions vs frequencies for each ranking method
-        and saves them side by side in a single image file.
-        
+        Generates separate scatter plots of DMD mode contributions vs frequencies for each ranking method,
+        with a color map showing the damping ratio of the modes. Saves them side by side in a single image file.
+    
         Parameters:
         -----------
         filename : str, optional
             The name of the saved image file. Default is "contribution_vs_frequency_separate.png".
         title : str, optional
             Title of the plot. Default is "Contribution vs Frequency Comparison".
-        
+    
         Returns:
         --------
         None
@@ -1588,12 +1667,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             "rank_modes_old": "Rank Modes Old"
         }
     
-        # Calculate mode frequencies
-        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
-        
+        # Calculate mode frequencies and damping ratios
+        eigenvalues = self.dmd.eigs
+        mode_frequencies = np.log(eigenvalues).imag / (2 * np.pi * self.dt)
+        damping_ratios = -np.log(eigenvalues).real / (2 * np.pi * self.dt)
+    
         # Set up the figure and axes
         fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=False)  # Separate scales, shared y-axis off
-        
+    
         for i, method in enumerate(ranking_methods):
             if hasattr(self, method):
                 contributions = getattr(self, method)()
@@ -1603,33 +1684,41 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                 positive_indices = mode_frequencies > 0
                 positive_frequencies = mode_frequencies[positive_indices]
                 positive_contributions = contributions[positive_indices]
-        
-                # Plot on the corresponding axis
+                positive_damping_ratios = damping_ratios[positive_indices]
+    
+                # Plot on the corresponding axis with a color map for damping ratios
                 ax = axes[i]
-                ax.scatter(
+                scatter = ax.scatter(
                     positive_frequencies,
                     positive_contributions,
-                    color='skyblue',
+                    c=positive_damping_ratios,
+                    cmap='viridis',
                     edgecolor='black',
-                    s=50
+                    s=50,
+                    vmin=0,  # Cap color map at 0
+                    vmax=1   # Cap color map at 1
                 )
-        
+    
+                # Add a color bar
+                cbar = fig.colorbar(scatter, ax=ax)
+                cbar.set_label("Damping Ratio", fontsize=12)
+    
                 # Set labels and title
                 ax.set_title(plot_titles[method], fontsize=14)
                 ax.set_xlabel("Frequency (Hz)", fontsize=12)
                 ax.set_ylabel("Contribution", fontsize=12)
                 ax.grid(linestyle='--', alpha=0.7)
-        
+    
         # Add a global title
         fig.suptitle(title, fontsize=16)
-        
+    
         # Adjust layout to fit titles and save the plot
         plt.tight_layout(rect=[0, 0, 1, 0.95])  # Leave space for the global title
         save_path = os.path.join(self.save_dir, filename)
         os.makedirs(self.save_dir, exist_ok=True)
         plt.savefig(save_path)
         plt.close()  # Free memory
-        
+    
         print(f"Side-by-side scatter plots excluding negative frequencies saved to: {save_path}")
             
 
@@ -1845,18 +1934,24 @@ def collect_and_average_energy_with_rankings(data_dir, save_dir, start, end, win
         
          
         
-            
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
-    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
+    base_save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update_pressure_400_full_rank"
     svd_rank = -1
     delay_length = 30
+
+    # Initialize lists to store the RMS power values for each bin across all time windows
+    rms_0_5hz_all_windows = []
+    rms_5_20hz_all_windows = []
+    rms_20hz_plus_all_windows = []
+    total_rms_all_windows = []  # Stores the total RMS power for each window
+    orig_data_rms_all_windows = []  # Stores RMS power of original data for each window
 
     # Define time windows and shifts
     start_t1 = 1000
     start_t2 = 1400
-    shift = 200
-    num_windows = 10  # Number of windows to process
+    shift = 100
+    num_windows = 20  # Number of windows to process
 
     for i in range(num_windows):
         # Calculate the current time window
@@ -1887,7 +1982,31 @@ if __name__ == "__main__":
         analysis.plot_summed_energy_groups_comparison(f"energy_bins_{t1}_{t2}")
         analysis.plot_contribution_vs_frequency_separate(filename=f"contribution_vs_frequency_{t1}_{t2}.png")
 
-    print("All time windows processed.")
+        # Call the categorize_and_compute_power function to get RMS power for each bin
+        rms_0_5hz, rms_5_20hz, rms_20hz_plus = analysis.categorize_and_compute_power()
+
+        # Compute the total RMS power for this window (RMS sum of all bins)
+        total_rms = np.sqrt(rms_0_5hz**2 + rms_5_20hz**2 + rms_20hz_plus**2)
+        total_rms_all_windows.append(total_rms)
+
+        # Compute the aggregate power from the original data
+        orig_data_rms = analysis.calculate_agg_power_original_data()
+        orig_data_rms_all_windows.append(orig_data_rms)
+
+    # Function to compute mean and standard deviation
+    def compute_mean_rms(values):
+        values = np.array(values)
+        return np.sqrt(np.mean(values**2))
+
+    # Compute mean total RMS power across all time windows
+    mean_total_rms = compute_mean_rms(total_rms_all_windows)
+    mean_orig_data_rms = compute_mean_rms(orig_data_rms_all_windows)
+
+    # Print the results
+    print(f"Mean Total RMS Power: {mean_total_rms}")
+    print(f"Mean RMS Power of Original Data: {mean_orig_data_rms}")
+
+
     # %%
 
     # idx_li = dmd0.time_window_bins(0, 400)
