@@ -442,8 +442,37 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             # plt.ylim([-1.1, 1.1])
             plt.legend()
             plt.title(fig_name)
+            plt.grid(True, linestyle="--", alpha=0.7)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
+            
+    def plot_rms_timeseries(self):
+        pdata = self.dmd.reconstructed_data  # Shape: (num_taps, time)
+        original_data = self.train_X.T  # Transpose to match shape (num_taps, time)
+    
+        # Compute RMS over all pressure taps at each time step (shape: (time,))
+        rms_reconstructed = np.sqrt(np.mean(pdata**2, axis=0))
+        rms_original = np.sqrt(np.mean(original_data**2, axis=0))
+    
+        # Create time axis
+        time = np.arange(pdata.shape[1])  # Shape: (time,)
+    
+        # Plot the RMS power over time
+        plt.figure(figsize=(12, 8))
+        plt.plot(time, rms_reconstructed, alpha=0.7, label="DMD RMS", linestyle="-")
+        plt.plot(time, rms_original, alpha=0.6, label="Original RMS", linestyle="-")
+    
+        # Labels and title
+        plt.legend()
+        plt.grid(True, linestyle="--", alpha=0.7)
+        plt.title("Time-Dependent RMS of Pressure Taps")
+        plt.xlabel("Time Step")
+        plt.ylabel("RMS")
+    
+        # Save the figure
+        plt.savefig(os.path.join(self.save_dir, "rms_timeseries.png"))
+        plt.close()
+
 
     def plot_timeseries_single_mode(self, idx_li, mode_index):
         pdata = self.get_single_mode_reconstruction(mode_index)
@@ -507,9 +536,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             os.remove(file)
             # print("removed", file)
 
-    def plot_modes(self, ds_idx, plot_negative=False):
+    def plot_modes(self, ds_idx, plot_negative=False, index=True):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
         coords_array = self.datasets[ds_idx].get_coords()
+        print(coords_array)
         n_i = len(np.unique(coords_array[:, 0]))
         n_j = len(np.unique(coords_array[:, 1]))
         name = self.datasets[ds_idx].name
@@ -529,7 +559,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
             Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
             Z = abs(modes_select)
-            
+            print(X)
             vmin = 0
             vmax = Z_all.max()
             cmap="viridis"
@@ -553,9 +583,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             ax.set_aspect("equal")
             
             # Adding coordinate index number at each coordinate
-            for i in range(n_j):
-                for j in range(n_i):
-                    ax.text(X[j], Y[i], f'{i*n_i + j}', color='black', fontsize=6, ha='center', va='center')
+            if index:
+                for i in range(n_j):
+                    for j in range(n_i):
+                        ax.text(X[j], Y[i], f'{i*n_i + j}', color='black', fontsize=6, ha='center', va='center')
             
             if is_building:
                 line_value = 0.5 * 2/3
@@ -643,7 +674,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         mode_amplitudes = self.dmd.amplitudes
         
         df = pd.DataFrame({
-            'Mode Number': np.arange(1, len(mode_frequencies) + 1),
+            'Mode Number': np.arange(0, len(mode_frequencies)),
             'Frequency (Hz)': mode_frequencies,
             'Amplitude': np.abs(mode_amplitudes)
         })
@@ -1393,24 +1424,75 @@ class HankelDMDAnalysis(DMDAnalysisBase):
                          color='blue', label='WT', s=50)
         
         # Annotate points with their original mode numbers for the first dataset
-        for i, row in df1.iterrows():
-            mode_number = int(row['Mode Number']) - 1  # Keep the original mode number
+        #for i, row in df1.iterrows():
+        #    mode_number = int(row['Mode Number']) - 1  # Keep the original mode number
         
         # Plot the second dataset
         sc2 = ax.scatter(df2['Frequency (Hz)'], df2['Energy'], 
                          color='orange', label='CFD', s=50)
         
         # Annotate points with their original mode numbers for the second dataset
-        for i, row in df2.iterrows():
-            mode_number = int(row['Mode Number']) - 1  # Keep the original mode number
+        #for i, row in df2.iterrows():
+        #    mode_number = int(row['Mode Number']) - 1  # Keep the original mode number
         
         # Set the plot title and axis labels
         ax.set_xlabel("Frequency (Hz)", fontsize=20)
         ax.set_ylabel("Energy", fontsize=20)
         
         # Set the x and y limits based on provided values or auto-calculated ones
-        xlim = xlim_max if xlim_max is not None else max(df1['Frequency (Hz)'].max(), df2['Frequency (Hz)'].max()) + 5
-        ylim = ylim_max if ylim_max is not None else max(df1['Energy'].max(), df2['Energy'].max()) + 5
+        xlim = xlim_max if xlim_max is not None else max(df1['Frequency (Hz)'].max(), df2['Frequency (Hz)'].max())
+        ylim = ylim_max if ylim_max is not None else max(df1['Energy'].max(), df2['Energy'].max())
+        
+        ax.set_xlim(0, xlim)
+        ax.set_ylim(0, ylim)
+        
+        # Add a legend to distinguish between the datasets
+        ax.legend(fontsize=16)
+        ax.grid(True, linestyle="--", alpha=0.7)
+        
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+        
+        # Save the plot as a PNG file
+        plot_path = os.path.join(self.save_dir, f"{title}.png")
+        plt.savefig(plot_path)
+        plt.close(fig)
+        
+    def plot_combined_amplitude_frequency(self, title, csv_path1, csv_path2, xlim_max=None, ylim_max=None):
+        # Read the data from the two CSV files
+        df1 = pd.read_csv(csv_path1)
+        df2 = pd.read_csv(csv_path2)
+        
+        # Filter out rows with negative frequencies without changing the indexing
+        df1 = df1[df1['Frequency (Hz)'] > 0]
+        df2 = df2[df2['Frequency (Hz)'] > 0]
+        
+        # Create a figure and axis for the plot
+        fig, ax = plt.subplots(figsize=(8, 6))
+        
+        # Plot the first dataset
+        sc1 = ax.scatter(df1['Frequency (Hz)'], df1['Amplitude'], 
+                         color='blue', label='WT', s=50)
+        
+        # Annotate points with their original mode numbers for the first dataset
+        #for i, row in df1.iterrows():
+        #    mode_number = int(row['Mode Number'])  # Keep the original mode number
+        
+        # Plot the second dataset
+        sc2 = ax.scatter(df2['Frequency (Hz)'], df2['Amplitude'], 
+                         color='orange', label='CFD', s=50)
+        
+        # Annotate points with their original mode numbers for the second dataset
+        #for i, row in df2.iterrows():
+        #    mode_number = int(row['Mode Number'])  # Keep the original mode number
+        
+        # Set the plot title and axis labels
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Amplitude", fontsize=20)
+        
+        # Set the x and y limits based on provided values or auto-calculated ones
+        xlim = xlim_max if xlim_max is not None else max(df1['Frequency (Hz)'].max(), df2['Frequency (Hz)'].max())
+        ylim = ylim_max if ylim_max is not None else max(df1['Amplitude'].max(), df2['Amplitude'].max())
         
         ax.set_xlim(0, xlim)
         ax.set_ylim(0, ylim)
@@ -1422,10 +1504,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         ax.tick_params(axis='y', labelsize=16)
         
         # Save the plot as a PNG file
-        plot_path = os.path.join(save_dir, f"{title}.png")
+        plot_path = os.path.join(self.save_dir, f"{title}.png")
         plt.savefig(plot_path)
         plt.close(fig)
-        
+
     def plot_summed_energy_groups(self, title, xlim=0, ylim=0):
         pattern = os.path.join(self.save_dir, f"{title}.png")
         self.clean_up_figures(pattern)
@@ -1580,10 +1662,9 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         # Formatting the plot
         ax.axhline(0, color='black', linewidth=0.8, linestyle='--')  # Real axis
         ax.axvline(0, color='black', linewidth=0.8, linestyle='--')  # Imaginary axis
-        ax.set_xlabel("Real Part", fontsize=14)
-        ax.set_ylabel("Imaginary Part", fontsize=14)
-        ax.set_title("DMD Eigenvalues on the Complex Plane", fontsize=16)
-        ax.legend(fontsize=12)
+        ax.set_xlabel("R(λ)", fontsize=14)
+        ax.set_ylabel("Im(λ)", fontsize=14)
+        #ax.set_title("DMD Eigenvalues on the Complex Plane", fontsize=16)
         ax.grid(True, linestyle='--', alpha=0.7)
         ax.axis('equal')  # Equal scaling for x and y axes
 
@@ -1720,6 +1801,15 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         plt.close()  # Free memory
     
         print(f"Side-by-side scatter plots excluding negative frequencies saved to: {save_path}")
+
+    def calc_average_error(self):
+        orig_pdata = self.dmd.reconstructed_data
+        dmd_pdata = np.transpose(self.train_X)
+        print("shapes:")
+        print(orig_pdata.shape)
+        print(dmd_pdata.shape)
+        rmse = np.sqrt(np.sum(np.square(np.subtract(orig_pdata, dmd_pdata))) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
+        return rmse
             
 
 def collect_and_average_energy(data_dir, save_dir, start, end, window_size, step, params):
@@ -1935,89 +2025,220 @@ def collect_and_average_energy_with_rankings(data_dir, save_dir, start, end, win
          
         
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    base_save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\HankelDMD-update_pressure_400_full_rank"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
+    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank_flow_field"
+    cfd_base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank_flow_field"
     svd_rank = -1
     delay_length = 30
 
-    # Initialize lists to store the RMS power values for each bin across all time windows
-    rms_0_5hz_all_windows = []
-    rms_5_20hz_all_windows = []
-    rms_20hz_plus_all_windows = []
-    total_rms_all_windows = []  # Stores the total RMS power for each window
-    orig_data_rms_all_windows = []  # Stores RMS power of original data for each window
+    # Initialize lists to store the summed energy values for each window
+    summed_energy_all_windows = []
 
     # Define time windows and shifts
     start_t1 = 1000
     start_t2 = 1400
     shift = 100
-    num_windows = 20  # Number of windows to process
+    num_windows = 1  # Number of windows to process
 
     for i in range(num_windows):
         # Calculate the current time window
         t1 = start_t1 + i * shift
         t2 = start_t2 + i * shift
         save_dir = f"{base_save_dir}_shift_{i * shift}"
+        cfd_save_dir = f"{cfd_base_save_dir}_shift_{i * shift}"
 
         print(f"Processing time window {t1}-{t2}, saving to {save_dir}")
 
         # Initialize analysis object
         analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
         analysis.make_save_dir()
-        names = ["p"]
-        is_building_li = [False]
-        relative_paths = [r"p.csv"]
-        coords_relative_paths = [r"coords.csv"]
+        names = ["p", "ux", "uy", "uz"]
+        is_building_li = [False, False, False, False]
+        relative_paths = [r"p.csv", r"ux4.csv", r"uy4.csv", r"uz4.csv"]
+        coords_relative_paths = [r"coords.csv", r"coords4.csv", r"coords4.csv", r"coords4.csv"]
         analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
 
         # Trim datasets for this time window
-        analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0])
-        
+        analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0, 1, 2, 3])
         # Process datasets
         analysis.demean_datasets()
-        analysis.normalize_datasets()
-        analysis.fit(ds_indices=[0])
+        analysis.normalize_group(ds_indices = [0])
+        analysis.normalize_group(ds_indices = [1, 2, 3]) 
+        analysis.fit(ds_indices=[0, 1, 2, 3])
+        analysis.plot_amplitude_frequency()
+        analysis.plot_energy_frequency("energy_frequency")
         analysis.save_dmd()
-        analysis.plot_dmd_eigenvalues(title=f"dmd_eigenvalues_{t1}_{t2}")
-        analysis.plot_summed_energy_groups_comparison(f"energy_bins_{t1}_{t2}")
-        analysis.plot_contribution_vs_frequency_separate(filename=f"contribution_vs_frequency_{t1}_{t2}.png")
+        analysis.plot_all_ds(plot_negative=True)
 
-        # Call the categorize_and_compute_power function to get RMS power for each bin
-        rms_0_5hz, rms_5_20hz, rms_20hz_plus = analysis.categorize_and_compute_power()
+        #analysis.plot_modes()
+        # Save the summed energy to CSV
+        #analysis.plot_summed_energy_groups("energy_bins")
+        #analysis.plot_rms_timeseries()
+        #analysis.plot_cumulative_energy("cumulative_energy")
+        #analysis.plot_timeseries([166, 161, 176])
+        
+        #plot_cumulative_energy_comparison(f"{save_dir}\cumulative_energy_data.csv", f"{cfd_save_dir}\cumulative_energy_data.csv", ("WT", "CFD"), "Cumulative Energy Comparison", save_dir)
+        #analysis.plot_combined_energy_frequency("combined_energy_frequency", f"{save_dir}\energy_frequency_data.csv", f"{cfd_save_dir}\energy_frequency_data.csv")
 
-        # Compute the total RMS power for this window (RMS sum of all bins)
-        total_rms = np.sqrt(rms_0_5hz**2 + rms_5_20hz**2 + rms_20hz_plus**2)
-        total_rms_all_windows.append(total_rms)
+        # Load the saved summed energy CSV for this window
+        #summed_energy_csv_path = os.path.join(save_dir, "summed_energy_groups.csv")
+        #summed_energy_df = pd.read_csv(summed_energy_csv_path)
+        
+        # Collect the summed energy values
+        #summed_energy_all_windows.append(summed_energy_df['Energy'].values)
 
-        # Compute the aggregate power from the original data
-        orig_data_rms = analysis.calculate_agg_power_original_data()
-        orig_data_rms_all_windows.append(orig_data_rms)
+    # Convert list to a numpy array for easier manipulation
+    #summed_energy_all_windows = np.array(summed_energy_all_windows)
+
+    # Calculate the mean and standard deviation across all windows for each bin
+    #mean_summed_energy = summed_energy_all_windows.mean(axis=0)
+    #std_summed_energy = summed_energy_all_windows.std(axis=0)
+
+    # Create a DataFrame to store the results
+    #result_df = pd.DataFrame({
+    #    'Frequency Group': summed_energy_df['Group'],
+    #    'Average Summed Energy': mean_summed_energy,
+    #    'Standard Deviation': std_summed_energy
+    #})
+
+    # Save the results to a CSV file
+    #output_csv_path = r"C:\Users\Keith\Documents\research_paper\pressure-case\average_summed_energy_with_std.csv"
+    #result_df.to_csv(output_csv_path, index=False)
+
+    # Plot the average and standard deviation
+    #fig, ax = plt.subplots(figsize=(8, 6))
+    #ax.bar(summed_energy_df['Group'], mean_summed_energy, color='orange', yerr=std_summed_energy, capsize=5)
+    
+    # Set the plot title and axis labels
+    #ax.set_title("Average Summed Energy for Each Frequency Group with Standard Deviation", fontsize=20)
+    #ax.set_xlabel("Frequency Group", fontsize=20)
+    #ax.set_ylabel("Average Summed Energy", fontsize=20)
+    
+    #plot_png_path = r"C:\Users\Keith\Documents\research_paper\pressure-case\average_summed_energy_plot.png"
+    #plt.savefig(plot_png_path, dpi=300)  # Save with 300 dpi for high resolution
+    #plt.close(fig)  # Close the figure after saving to free memory
+
+
 
     # Function to compute mean and standard deviation
     def compute_mean_rms(values):
         values = np.array(values)
         return np.sqrt(np.mean(values**2))
 
-    # Compute mean total RMS power across all time windows
-    mean_total_rms = compute_mean_rms(total_rms_all_windows)
-    mean_orig_data_rms = compute_mean_rms(orig_data_rms_all_windows)
+    def plot_cumulative_energy_comparison(csv_path1, csv_path2, labels=("Dataset 1", "Dataset 2"), title="Cumulative Energy Comparison", save_dir="."):
+        # Read CSV files
+        df1 = pd.read_csv(csv_path1)
+        df2 = pd.read_csv(csv_path2)
+    
+        # Plot cumulative energy vs frequency for both datasets
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(df1['Frequency (Hz)'], df1['Cumulative Energy'], label=labels[0], lw=2, color='blue')
+        ax.plot(df2['Frequency (Hz)'], df2['Cumulative Energy'], label=labels[1], lw=2, color='red')
+    
+        # Set labels and title
+        ax.set_xlabel("Frequency (Hz)", fontsize=16)
+        ax.set_ylabel("Cumulative Energy", fontsize=16)
+        ax.set_title(title, fontsize=18)
+    
+        # Add legend
+        ax.legend(fontsize=14)
+    
+        # Save the plot
+        save_path = os.path.join(save_dir, f"{title.replace(' ', '_')}.png")
+        plt.savefig(save_path)
+        plt.show()
+        
+        return save_path
 
-    # Print the results
-    print(f"Mean Total RMS Power: {mean_total_rms}")
-    print(f"Mean RMS Power of Original Data: {mean_orig_data_rms}")
+    # Function to compute mean and standard deviation
+    def compute_mean_rms(values):
+        values = np.array(values)
+        return np.sqrt(np.mean(values**2))
 
 
-    # %%
+    # Function to compute mean and standard deviation
+    def compute_mean_rms(values):
+        values = np.array(values)
+        return np.sqrt(np.mean(values**2))
 
-    # idx_li = dmd0.time_window_bins(0, 400)
-    # freqs = []
-    # amps = []
-    # for idx in idx_li:
-    #     if len(dmd0.dmd_tree[idx].frequency) > 0:
-    #         freqs.append(dmd0.dmd_tree[idx].frequency[0])
-    #         amps.append(abs(dmd0.dmd_tree[idx].amplitudes[0]))
-    #         plt.text(freqs[-1], amps[-1], s=str(idx))
-    # plt.scatter(freqs, amps)
+    def plot_cumulative_energy_comparison(csv_path1, csv_path2, labels=("Dataset 1", "Dataset 2"), title="Cumulative Energy Comparison", save_dir="."):
+        # Read CSV files
+        df1 = pd.read_csv(csv_path1)
+        df2 = pd.read_csv(csv_path2)
+    
+        # Plot cumulative energy vs frequency for both datasets
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(df1['Frequency (Hz)'], df1['Cumulative Energy'], label=labels[0], lw=2, color='blue')
+        ax.plot(df2['Frequency (Hz)'], df2['Cumulative Energy'], label=labels[1], lw=2, color='red')
+    
+        # Set labels and title
+        ax.set_xlabel("Frequency (Hz)", fontsize=16)
+        ax.set_ylabel("Cumulative Energy", fontsize=16)
+        ax.set_title(title, fontsize=18)
+    
+        # Add legend
+        ax.legend(fontsize=14)
+    
+        # Save the plot
+        save_path = os.path.join(save_dir, f"{title.replace(' ', '_')}.png")
+        plt.savefig(save_path)
+        plt.show()
+        
+        return save_path
+
+
+
+    # %% combined summed energy plot
+
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Paths to the two CSV files
+csv_path_1 = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\average_summed_energy_with_std.csv"
+csv_path_2 = r"C:\Users\Keith\Documents\research_paper\pressure-case\average_summed_energy_with_std.csv"
+
+# Load the data
+df1 = pd.read_csv(csv_path_1)
+df2 = pd.read_csv(csv_path_2)
+
+# Ensure they have the same frequency groups
+assert all(df1['Frequency Group'] == df2['Frequency Group']), "Frequency groups do not match!"
+
+# Extract values
+groups = df1['Frequency Group']
+mean_energy_1 = df1['Average Summed Energy']
+std_energy_1 = df1['Standard Deviation']
+mean_energy_2 = df2['Average Summed Energy']
+std_energy_2 = df2['Standard Deviation']
+
+# Plot settings
+bar_width = 0.4  # Width of bars
+x = np.arange(len(groups))  # X positions for bars
+
+fig, ax = plt.subplots(figsize=(8, 6))
+
+# Plot bars for dataset 1
+ax.bar(x - bar_width/2, mean_energy_1, bar_width, yerr=std_energy_1, capsize=5, label="CFD", color="orange", alpha=0.8)
+
+# Plot bars for dataset 2
+ax.bar(x + bar_width/2, mean_energy_2, bar_width, yerr=std_energy_2, capsize=5, label="WT", color="blue", alpha=0.8)
+
+# Formatting
+ax.set_xticks(x)
+ax.set_xticklabels(groups, fontsize=14)
+ax.set_xlabel("Frequency Group", fontsize=16)
+ax.set_ylabel("Average Summed Energy", fontsize=16)
+#ax.set_title("Comparison of Summed Energy Across Frequency Groups", fontsize=18)
+ax.legend(fontsize=14)
+
+ax.grid(True, linestyle="--", alpha=0.7)
+
+# Save the plot
+plot_png_path = r"C:\Users\Keith\Documents\research_paper\comparison_plot.png"
+plt.savefig(plot_png_path, dpi=300)  # Save as high-resolution PNG
+plt.close(fig)  # Close the figure
 
     # %%
     fshed = 4.72
