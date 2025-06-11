@@ -286,7 +286,6 @@ class MrDMDAnalysis(DMDAnalysisBase):
         print("cleaning up", pattern)
         for file in matching_files:
             os.remove(file)
-            # print("removed", file)
 
     def plot_modes(self, ds_idx, max_level=-1, plot_negative=False):
         if max_level == -1:
@@ -426,7 +425,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         self.delay_length = delay_length
                     
     def fit(self, ds_indices=None):
-        print(self.svd_rank)
         self.dmd = HankelDMD(svd_rank=self.svd_rank,d=self.delay_length)
         self.compose_data(ds_indices=ds_indices)
         self.dmd.fit(X=self.train_X.T)
@@ -534,12 +532,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         print("cleaning up", pattern)
         for file in matching_files:
             os.remove(file)
-            # print("removed", file)
 
     def plot_modes(self, ds_idx, plot_negative=False, index=True):
         start_i, end_i = self.ds_idx_to_trainX_idx[ds_idx]
         coords_array = self.datasets[ds_idx].get_coords()
-        print(coords_array)
         n_i = len(np.unique(coords_array[:, 0]))
         n_j = len(np.unique(coords_array[:, 1]))
         name = self.datasets[ds_idx].name
@@ -559,7 +555,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             X = coords_array[:, 0].reshape(n_j, n_i)[0, :]
             Y = coords_array[:, 1].reshape(n_j, n_i)[:, 0]        
             Z = abs(modes_select)
-            print(X)
             vmin = 0
             vmax = Z_all.max()
             cmap="viridis"
@@ -749,7 +744,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     
     def calculate_agg_power_original_data(self):
         orig_data = self.train_X.T  # Assuming self.train_X has shape (timesteps, pressure taps)
-        print(orig_data.shape)
         # Compute the standard deviation across time (axis=1 means across columns/timesteps)
         std_per_tap = np.std(orig_data, axis=1)
     
@@ -1170,6 +1164,52 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     
         return contributions
 
+    def rank_modes_separate(self):
+        """
+        Computes the energy contributions of DMD modes for pressure and velocity components separately.
+    
+        Parameters:
+        -----------
+    
+        Returns:
+        --------
+        pressure_contributions : list
+            Contributions of the DMD modes from the pressure component.
+        velocity_contributions : list
+            Contributions of the DMD modes from the velocity component.
+        """
+        # Retrieve modes, eigenvalues, and amplitudes
+        modes = self.get_original_modes()
+    
+        eigs = self.dmd.eigs
+        amplitudes = self.dmd.amplitudes
+        N = self.dmd.dynamics.shape[1]  # Number of time steps
+    
+        # Split modes into pressure (first 500) and velocity (last 450)
+        pressure_modes = modes[:500, :]
+        velocity_modes = modes[500:, :]
+    
+        # Compute the Frobenius norm squared for each mode, separately for pressure and velocity
+        pressure_norms_squared = np.linalg.norm(pressure_modes, axis=0)**2
+        velocity_norms_squared = np.linalg.norm(velocity_modes, axis=0)**2
+    
+        # Calculate the contribution of each mode
+        pressure_contributions = []
+        velocity_contributions = []
+    
+        for j, (alpha_j, mu_j) in enumerate(zip(amplitudes, eigs)):
+            # Time evolution factor
+            time_evolution = sum(abs(alpha_j * (mu_j**(i - 1))) for i in range(1, N + 1))
+    
+            # Separate contributions for pressure and velocity
+            pressure_contribution = time_evolution * pressure_norms_squared[j] * self.dt
+            velocity_contribution = time_evolution * velocity_norms_squared[j] * self.dt
+    
+            pressure_contributions.append(pressure_contribution)
+            velocity_contributions.append(velocity_contribution)
+    
+        return pressure_contributions, velocity_contributions
+
     def rank_modes_1(self):
         """
         Computes the energy contributions of DMD modes using the given formula, in their original order.
@@ -1357,7 +1397,387 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         plt.clf()
         plt.close("all")
         gc.collect()
+
+    def plot_binned_energy_frequency(self, title, bin_width=10, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}_binned_energy.png")
+        self.clean_up_figures(pattern)
+    
+        # Compute mode frequencies and energies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        mode_energies = np.abs(self.rank_modes())
+    
+        # Keep only positive frequencies
+        valid_indices = mode_frequencies > 0
+        mode_frequencies = mode_frequencies[valid_indices]
+        mode_energies = mode_energies[valid_indices]
+    
+        # Bin the frequencies
+        min_freq = np.floor(mode_frequencies.min())
+        max_freq = np.ceil(mode_frequencies.max())
+        bins = np.arange(min_freq, max_freq + bin_width, bin_width)
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+    
+        binned_means = []
+        binned_stds = []
+    
+        for i in range(len(bins) - 1):
+            in_bin = (mode_frequencies >= bins[i]) & (mode_frequencies < bins[i + 1])
+            energies_in_bin = mode_energies[in_bin]
+            if len(energies_in_bin) > 0:
+                binned_means.append(np.mean(energies_in_bin))
+                binned_stds.append(np.std(energies_in_bin))
+            else:
+                binned_means.append(0)
+                binned_stds.append(0)
+    
+        # Save data to CSV
+        df = pd.DataFrame({
+            'Bin Center Frequency (Hz)': bin_centers,
+            'Mean Energy': binned_means,
+            'Standard Deviation': binned_stds
+        })
+        csv_path = os.path.join(self.save_dir, "binned_energy_frequency.csv")
+        df.to_csv(csv_path, index=False)
+    
+        # Plot
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.bar(bin_centers, binned_means, yerr=binned_stds, width=bin_width * 0.9,
+               align='center', edgecolor='black', capsize=5)
+    
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Mean Energy", fontsize=20)
+    
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, f"{title}_binned_energy.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+
+    def plot_binned_stacked_energy(self, title, bin_width=10, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}_stacked_energy.png")
+        self.clean_up_figures(pattern)
+    
+        # Compute frequencies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        pressure_contributions, velocity_contributions = self.rank_modes_separate()
+    
+        # Filter positive frequencies
+        valid_indices = mode_frequencies > 0
+        mode_frequencies = mode_frequencies[valid_indices]
+        pressure_contributions = np.array(pressure_contributions)[valid_indices]
+        velocity_contributions = np.array(velocity_contributions)[valid_indices]
+    
+        # Bin setup
+        min_freq = np.floor(mode_frequencies.min())
+        max_freq = np.ceil(mode_frequencies.max())
+        bins = np.arange(min_freq, max_freq + bin_width, bin_width)
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+    
+        binned_pressure = []
+        binned_velocity = []
+    
+        for i in range(len(bins) - 1):
+            in_bin = (mode_frequencies >= bins[i]) & (mode_frequencies < bins[i + 1])
+            total_pressure = pressure_contributions[in_bin].sum()
+            total_velocity = velocity_contributions[in_bin].sum()
+            binned_pressure.append(total_pressure)
+            binned_velocity.append(total_velocity)
+    
+        # Save to CSV
+        df = pd.DataFrame({
+            'Bin Center Frequency (Hz)': bin_centers,
+            'Total Pressure Energy': binned_pressure,
+            'Total Velocity Energy': binned_velocity
+        })
+        csv_path = os.path.join(self.save_dir, "stacked_energy_binned.csv")
+        df.to_csv(csv_path, index=False)
+    
+        # Plot
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.bar(bin_centers, binned_pressure, width=bin_width * 0.9, label='Pressure', align='center', edgecolor='black')
+        ax.bar(bin_centers, binned_velocity, width=bin_width * 0.9, bottom=binned_pressure,
+               label='Velocity', align='center', edgecolor='black')
+    
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Total Energy", fontsize=20)
+    
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+        ax.legend(fontsize=16)
+    
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, f"{title}_stacked_energy.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
         
+    def plot_pressure_energy_frequency(self, title, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}_pressure_only.png")
+        self.clean_up_figures(pattern)
+    
+        # Compute mode frequencies and pressure energy
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        pressure_contributions, _ = self.rank_modes_separate()
+        pressure_contributions = np.abs(pressure_contributions)
+    
+        # Original mode numbers
+        mode_numbers = np.arange(len(mode_frequencies))
+    
+        # Filter for positive frequencies
+        valid_indices = mode_frequencies > 0
+        filtered_frequencies = mode_frequencies[valid_indices]
+        filtered_energies = pressure_contributions[valid_indices]
+        filtered_mode_numbers = mode_numbers[valid_indices]
+    
+        # Save to CSV
+        df = pd.DataFrame({
+            'Mode Number': filtered_mode_numbers,
+            'Frequency (Hz)': filtered_frequencies,
+            'Pressure Energy': filtered_energies
+        })
+        csv_path = os.path.join(self.save_dir, "pressure_energy_frequency_data.csv")
+        df.to_csv(csv_path, index=False)
+    
+        # Plot
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for freq, energy, mode_num in zip(filtered_frequencies, filtered_energies, filtered_mode_numbers):
+            ax.scatter(freq, energy,
+                       c=mode_num, cmap='plasma', vmin=0, vmax=len(mode_frequencies), s=50)
+            ax.text(freq, energy, str(mode_num), ha='right', va='bottom', fontsize=16)
+    
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Pressure Energy", fontsize=20)
+    
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        else:
+            ax.set_xlim(0)
+    
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        # Add colorbar
+        norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
+        cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='plasma'), ax=ax)
+        cbar.set_label("Mode Number", fontsize=20)
+        cbar.ax.tick_params(labelsize=16)
+    
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, f"{title}_pressure_only.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+
+    def plot_velocity_energy_frequency(self, title, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}_velocity_only.png")
+        self.clean_up_figures(pattern)
+    
+        # Compute frequencies and get only velocity contributions
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+        _, velocity_contributions = self.rank_modes_separate()
+        velocity_contributions = np.abs(velocity_contributions)
+    
+        # Original mode numbers
+        mode_numbers = np.arange(len(mode_frequencies))
+    
+        # Filter for positive frequencies
+        valid_indices = mode_frequencies > 0
+        filtered_frequencies = mode_frequencies[valid_indices]
+        filtered_energies = velocity_contributions[valid_indices]
+        filtered_mode_numbers = mode_numbers[valid_indices]
+    
+        # Save to CSV
+        df = pd.DataFrame({
+            'Mode Number': filtered_mode_numbers,
+            'Frequency (Hz)': filtered_frequencies,
+            'Velocity Energy': filtered_energies
+        })
+        csv_path = os.path.join(self.save_dir, "velocity_energy_frequency_data.csv")
+        df.to_csv(csv_path, index=False)
+    
+        # Plot
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for freq, energy, mode_num in zip(filtered_frequencies, filtered_energies, filtered_mode_numbers):
+            ax.scatter(freq, energy,
+                       c=mode_num, cmap='cividis', vmin=0, vmax=len(mode_frequencies), s=50)
+            ax.text(freq, energy, str(mode_num), ha='right', va='bottom', fontsize=16)
+    
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Velocity Energy", fontsize=20)
+    
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        else:
+            ax.set_xlim(0)
+    
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        # Colorbar
+        norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
+        cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='cividis'), ax=ax)
+        cbar.set_label("Mode Number", fontsize=20)
+        cbar.ax.tick_params(labelsize=16)
+    
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, f"{title}_velocity_only.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+    
+    def plot_pressure_velocity_ratio(self, title, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}.png")
+        self.clean_up_figures(pattern)
+    
+        # Compute mode frequencies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+    
+        # Get pressure and velocity contributions
+        pressure_contributions, velocity_contributions = self.rank_modes_separate()
+    
+        # Compute the ratio (avoiding division by zero)
+        ratio = np.array(pressure_contributions) / np.array(velocity_contributions)
+        ratio = np.nan_to_num(ratio, nan=0, posinf=0, neginf=0)  # Handle divide-by-zero issues
+    
+        # Create a DataFrame for saving
+        df = pd.DataFrame({
+            'Mode Number': np.arange(1, len(mode_frequencies) + 1),
+            'Frequency (Hz)': mode_frequencies,
+            'Pressure/Velocity Ratio': ratio
+        })
+    
+        # Save to CSV
+        csv_path = os.path.join(self.save_dir, "pressure_velocity_ratio.csv")
+        df.to_csv(csv_path, index=False)
+    
+        # Plot the ratio vs frequency
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for i in range(len(mode_frequencies)):
+            frequency = mode_frequencies[i]
+            if frequency > 0:  # Exclude negative frequencies
+                ax.scatter(frequency, ratio[i], c=i+1, cmap='plasma', vmin=0, vmax=200, s=50)
+                ax.text(frequency, ratio[i], str(i), ha='right', va='bottom', fontsize=16)
+    
+        # Set labels and limits
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Pressure Contribution / Velocity Contribution", fontsize=20)
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        # Add colorbar
+        norm = mcolors.Normalize(vmin=0, vmax=len(mode_frequencies))
+        cbar = plt.colorbar(plt.cm.ScalarMappable(norm=norm, cmap='plasma'), ax=ax)
+        cbar.set_label("Mode Number", fontsize=20)
+        cbar.ax.tick_params(labelsize=16)
+    
+        plt.savefig(os.path.join(self.save_dir, f"{title}.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+        
+    def plot_binned_pressure_velocity_ratio(self, title, bin_width=10, xlim=0, ylim=0):
+        pattern = os.path.join(self.save_dir, f"{title}_binned.png")
+        self.clean_up_figures(pattern)
+    
+        # Compute mode frequencies
+        mode_frequencies = np.log(self.dmd.eigs).imag / (2 * np.pi * self.dt)
+    
+        # Get pressure and velocity contributions
+        pressure_contributions, velocity_contributions = self.rank_modes_separate()
+    
+        # Only keep positive frequencies
+        valid_indices = mode_frequencies > 0
+        mode_frequencies = mode_frequencies[valid_indices]
+        pressure_contributions = np.array(pressure_contributions)[valid_indices]
+        velocity_contributions = np.array(velocity_contributions)[valid_indices]
+    
+        # Compute per-mode ratio
+        with np.errstate(divide='ignore', invalid='ignore'):
+            per_mode_ratios = np.where(velocity_contributions != 0,
+                                       pressure_contributions / velocity_contributions,
+                                       0)
+    
+        # Bin the frequencies
+        min_freq = np.floor(mode_frequencies.min())
+        max_freq = np.ceil(mode_frequencies.max())
+        bins = np.arange(min_freq, max_freq + bin_width, bin_width)
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+    
+        binned_means = []
+        binned_stds = []
+    
+        for i in range(len(bins) - 1):
+            in_bin = (mode_frequencies >= bins[i]) & (mode_frequencies < bins[i + 1])
+            ratios_in_bin = per_mode_ratios[in_bin]
+            if len(ratios_in_bin) > 0:
+                binned_means.append(np.mean(ratios_in_bin))
+                binned_stds.append(np.std(ratios_in_bin))
+            else:
+                binned_means.append(0)
+                binned_stds.append(0)
+    
+        # Save to CSV
+        df = pd.DataFrame({
+            'Bin Center Frequency (Hz)': bin_centers,
+            'Binned Pressure/Velocity Ratio Mean': binned_means,
+            'Standard Deviation': binned_stds
+        })
+    
+        csv_path = os.path.join(self.save_dir, "binned_pressure_velocity_ratio.csv")
+        df.to_csv(csv_path, index=False)
+    
+        # Plot with error bars
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.bar(bin_centers, binned_means, yerr=binned_stds, width=bin_width * 0.9,
+               align='center', edgecolor='black', capsize=5)
+    
+        ax.set_xlabel("Frequency (Hz)", fontsize=20)
+        ax.set_ylabel("Mean Pressure/Velocity Ratio", fontsize=20)
+    
+        if xlim != 0:
+            ax.set_xlim(0, xlim)
+        if ylim != 0:
+            ax.set_ylim(0, ylim)
+    
+        ax.tick_params(axis='x', labelsize=16)
+        ax.tick_params(axis='y', labelsize=16)
+    
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.save_dir, f"{title}_binned.png"))
+        plt.close(fig)
+        plt.clf()
+        plt.close("all")
+        gc.collect()
+    
     def plot_cumulative_energy(self, title, xlim=0, ylim=0):
         pattern = os.path.join(self.save_dir, f"{title}.png")
         self.clean_up_figures(pattern)
@@ -1805,9 +2225,6 @@ class HankelDMDAnalysis(DMDAnalysisBase):
     def calc_average_error(self):
         orig_pdata = self.dmd.reconstructed_data
         dmd_pdata = np.transpose(self.train_X)
-        print("shapes:")
-        print(orig_pdata.shape)
-        print(dmd_pdata.shape)
         rmse = np.sqrt(np.sum(np.square(np.subtract(orig_pdata, dmd_pdata))) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
         return rmse
             
@@ -2025,9 +2442,9 @@ def collect_and_average_energy_with_rankings(data_dir, save_dir, start, end, win
          
         
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
-    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank_flow_field"
-    cfd_base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank_flow_field"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data\x=-2"
+    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\2_HankelDMD-update_pressure_400_full_rank_flow_field"
+    cfd_base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\2_HankelDMD-update_pressure_400_full_rank_flow_field"
     svd_rank = -1
     delay_length = 30
 
@@ -2067,15 +2484,22 @@ if __name__ == "__main__":
         analysis.fit(ds_indices=[0, 1, 2, 3])
         analysis.plot_amplitude_frequency()
         analysis.plot_energy_frequency("energy_frequency")
+        analysis.plot_pressure_energy_frequency("pressure_energy_frequency")
+        analysis.plot_pressure_velocity_ratio("ratio_frequency")
+        analysis.plot_binned_pressure_velocity_ratio(title="binned_ratio_frequency", bin_width=5)
+        analysis.plot_dmd_eigenvalues()
+        analysis.plot_binned_energy_frequency(title="binned_energy_frequency")
+        analysis.plot_binned_stacked_energy(title="binned_stacked_energy")
+        analysis.plot_velocity_energy_frequency(title="velocity_energy_frequency")
+        analysis.plot_timeseries([160, 550, 700, 850])
         analysis.save_dmd()
-        analysis.plot_all_ds(plot_negative=True)
+        #analysis.plot_all_ds(plot_negative=True)
 
         #analysis.plot_modes()
         # Save the summed energy to CSV
         #analysis.plot_summed_energy_groups("energy_bins")
         #analysis.plot_rms_timeseries()
         #analysis.plot_cumulative_energy("cumulative_energy")
-        #analysis.plot_timeseries([166, 161, 176])
         
         #plot_cumulative_energy_comparison(f"{save_dir}\cumulative_energy_data.csv", f"{cfd_save_dir}\cumulative_energy_data.csv", ("WT", "CFD"), "Cumulative Energy Comparison", save_dir)
         #analysis.plot_combined_energy_frequency("combined_energy_frequency", f"{save_dir}\energy_frequency_data.csv", f"{cfd_save_dir}\energy_frequency_data.csv")
