@@ -854,11 +854,11 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             gc.collect()
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\sensitivity-analysis-final-no-flow"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\sensitivity-analysis-final"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.91
+    svd_rank = 0.99
     tikhonov_regularization = 1e-7
     delay_length = 5
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
@@ -929,6 +929,7 @@ if __name__ == "__main__":
     df.to_excel(os.path.join(save_dir, 'average_errors_all.xlsx'), index=False)
     plt.xlabel('Number of Snapshots')
     plt.ylabel('Average Reconstruction Error')
+    plt.ylim(0, 35)
     # plt.title('Sensitivity Analysis: Average Error vs. Number of Snapshots')
     plt.legend()
     plt.grid(True)
