@@ -853,21 +853,21 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\Cp_v2_factor\sensitivity-analysis_flowfield"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\sensitivity-analysis-final-no-flow"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.9
+    svd_rank = 0.91
     tikhonov_regularization = 1e-7
     delay_length = 5
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
     analysis.make_save_dir()
 
-    names = ["p", "ux1", "uy1", "ux2", "uy2", "ux3", "uy3"]
-    is_building_li = [False, False, False, False, False, False, False]
-    relative_paths = [r"p/p.csv", "1/ux1.csv", "1/uy1.csv", "2/ux2.csv", "2/uy2.csv", "3/ux3.csv", "3/uy3.csv"]
-    coords_relative_paths = [r"p/coords.csv", "1/coords1.csv", -1, "2/coords2.csv", -1, "3/coords3.csv", -1]
+    names = ["p"]
+    is_building_li = [False, False, False, False]
+    relative_paths = [r"p.csv"]
+    coords_relative_paths = [r"coords.csv"]
 
     # num_snapshots_list = [1000, 750, 500, 300, 200, 100, 50]
 
@@ -896,10 +896,10 @@ if __name__ == "__main__":
     num_snapshots_list = [50, 100, 200, 300, 400, 500, 800, 1000]
     average_errors_dict = {}
 
-    delay_lengths = [1, 10, 20, 30]
+    delay_lengths = [1, 10, 20, 30, 40]
     average_errors_dict = {}
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(6, 4), dpi = 300)
     data = []
     
     for delay_length in delay_lengths:
@@ -908,14 +908,12 @@ if __name__ == "__main__":
             analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
             analysis.make_save_dir()
             analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-            analysis.trim_datasets(t1=1001, t2=1001+N, i1=0, i2=None, ds_indices=[0])
-            analysis.trim_datasets(t1=0, t2=N, i1=6000, i2=None, ds_indices=[1,2,3,4,5,6])
+            analysis.trim_datasets(t1=1000, t2=1000+N, i1=0, i2=None, ds_indices=[0])
             #analysis.filter_datasets(x_lower=-0.5, ds_indices=[0, 1, 2, 3, 4, 5])
             analysis.demean_datasets()
             #analysis.normalize_datasets()
             analysis.normalize_group(ds_indices = [0])
-            analysis.normalize_group(ds_indices = [1,2,3,4,5,6])
-            analysis.fit(ds_indices=[0,1,2,3,4,5,6])
+            analysis.fit(ds_indices=[0])
             analysis.save_dmd()
             #analysis.plot_timeseries([0, 50, 100, 200])
             average_error = analysis.calc_average_error(500)
@@ -929,8 +927,8 @@ if __name__ == "__main__":
         )
     df = pd.DataFrame(data)
     df.to_excel(os.path.join(save_dir, 'average_errors_all.xlsx'), index=False)
-    plt.xlabel('Number of Snapshots [N]')
-    plt.ylabel('Total Reconstruction Error/N')
+    plt.xlabel('Number of Snapshots')
+    plt.ylabel('Average Reconstruction Error')
     # plt.title('Sensitivity Analysis: Average Error vs. Number of Snapshots')
     plt.legend()
     plt.grid(True)
