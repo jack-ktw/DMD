@@ -231,14 +231,15 @@ class MrDMDAnalysis(DMDAnalysisBase):
     def plot_timeseries(self, idx_li):
         pdata = self.dmd.reconstructed_data
         for idx in idx_li:
-            fig_name = f"timeseries_{idx}"
-            plt.figure(figsize=(12, 8))
+            #fig_name = f"timeseries_{idx}"
+            plt.figure(figsize=(6, 4))
             
             cumulative_error = np.sum((pdata[idx, :] - self.train_X[:, idx])**2)
-    
+            
+            plt.plot(self.train_X[:, idx], alpha=0.6, label="CFD")
             plt.plot(pdata[idx, :], alpha=0.7, label=f"DMD")
-            plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
-    
+            plt.ylabel(f"Pressure for Tap {idx}")
+            plt.xlabel("Time Step")
             plt.text(0.5, 0.02, f'Cumulative Error: {cumulative_error:.2f}',
                      horizontalalignment='center',
                      verticalalignment='center',
@@ -338,11 +339,9 @@ class MrDMDAnalysis(DMDAnalysisBase):
                 ax.set_aspect("equal")
                 
                 if is_building:
-                    line_value = 0.5 * 2/3
-                    ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                    ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-                    ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-                    ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.1, color='black', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.2, color='black', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.3, color='black', linestyle='-', linewidth=2)
 
                 plt.savefig(os.path.join(save_dir, f"2_modeshape_{level}_{mode_idx}_{name}_{freq:.1f}Hz.png"))
                 plt.close(fig)
@@ -399,11 +398,9 @@ class MrDMDAnalysis(DMDAnalysisBase):
                 ax.set_aspect("equal")
                 
                 if is_building:
-                    line_value = 0.5 * 2/3
-                    ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                    ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-                    ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-                    ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.1, color='black', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.2, color='black', linestyle='-', linewidth=2)
+                    ax.axvline(x=0.3, color='black', linestyle='-', linewidth=2)
 
                 plt.savefig(os.path.join(save_dir, f"2_modeshape_{level}_{mode_idx}_{name}_{freq:.1f}Hz_phase.png"))
                 plt.close(fig)
@@ -430,17 +427,23 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         self.dmd.fit(X=self.train_X.T)
         print("# modes:", self.dmd.modes.shape)
             
+    
     def plot_timeseries(self, idx_li):
         pdata = self.dmd.reconstructed_data
         for idx in idx_li:
             fig_name = f"timeseries_{idx}"
-            plt.figure(figsize=(12, 8))
+            plt.figure(figsize=(6, 4))
+            
+            cumulative_error = np.sum((pdata[idx, :] - self.train_X[:, idx])**2)
+            
+            plt.plot(self.train_X[:, idx], alpha=0.6, label="CFD")
             plt.plot(pdata[idx, :], alpha=0.7, label=f"DMD")
-            plt.plot(self.train_X[:, idx], alpha=0.6, label="original")
-            # plt.ylim([-1.1, 1.1])
+            plt.ylabel(f"Pressure for Tap {idx}")
+            plt.xlabel("Time Step")
             plt.legend()
-            plt.title(fig_name)
-            plt.grid(True, linestyle="--", alpha=0.7)
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.tight_layout()
+            #plt.title(fig_name)
             plt.savefig(os.path.join(self.save_dir, f"0_{fig_name}.png"))
             plt.close()
             
@@ -456,16 +459,18 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         time = np.arange(pdata.shape[1])  # Shape: (time,)
     
         # Plot the RMS power over time
-        plt.figure(figsize=(12, 8))
-        plt.plot(time, rms_reconstructed, alpha=0.7, label="DMD RMS", linestyle="-")
-        plt.plot(time, rms_original, alpha=0.6, label="Original RMS", linestyle="-")
+        plt.figure(figsize=(6, 4))
+        plt.plot(time, rms_original, alpha=0.6, label="CFD", linestyle="-")
+        plt.plot(time, rms_reconstructed, alpha=0.7, label="DMD", linestyle="-")
     
         # Labels and title
         plt.legend()
         plt.grid(True, linestyle="--", alpha=0.7)
-        plt.title("Time-Dependent RMS of Pressure Taps")
+        #plt.title("Time-Dependent RMS of Pressure Taps")
         plt.xlabel("Time Step")
-        plt.ylabel("RMS")
+        plt.ylabel("RMS Over All Taps")
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        plt.tight_layout()
     
         # Save the figure
         plt.savefig(os.path.join(self.save_dir, "rms_timeseries.png"))
@@ -569,26 +574,25 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             grow = np.log(eigs[mode_idx]).real / self.dt
             energy = energies[mode_idx]
     
-            fig = plt.figure(figsize=(8, 6))
+            fig = plt.figure(figsize=(6, 4))
             ax = plt.subplot(111)
             levels = np.linspace(vmin, vmax, 20)
             CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
             colorbar = plt.colorbar(CS)
-            ax.set_title(f"mode:{mode_idx}, {name}, {freq:.1f} Hz, g:{grow:.2f}, e:{energy}")
+            ax.set_title(rf"Mode {mode_idx}, $\omega$ = {freq:.1f} Hz, $g$ = {grow:.2f}")
             ax.set_aspect("equal")
             
             # Adding coordinate index number at each coordinate
+            index = False
             if index:
                 for i in range(n_j):
                     for j in range(n_i):
                         ax.text(X[j], Y[i], f'{i*n_i + j}', color='black', fontsize=6, ha='center', va='center')
             
             if is_building:
-                line_value = 0.5 * 2/3
-                ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.1, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.2, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.3, color='black', linestyle='-', linewidth=2)
     
             plt.savefig(os.path.join(self.save_dir, f"2_modeshape_{mode_idx}_{name}_{freq:.1f}Hz.png"))
             plt.close(fig)
@@ -632,20 +636,18 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             freq = np.log(eigs[mode_idx]).imag / (2 * np.pi * self.dt)
             grow = eigs[mode_idx].real
 
-            fig = plt.figure(figsize=(8, 6))
+            fig = plt.figure(figsize=(6, 4))
             ax = plt.subplot(111)
             levels = np.linspace(vmin, vmax, 20)
             CS = plt.contourf(X, Y, Z, cmap=cmap, levels=levels, vmin=vmin, vmax=vmax)
             colorbar = plt.colorbar(CS)
-            ax.set_title(f"phase: , mode:{mode_idx}, {name}, {freq:.1f} Hz, g:{grow:.2f}")
+            ax.set_title(rf"Phase Mode {mode_idx}, $\omega$ = {freq:.1f} Hz, $g$ = {grow:.2f}")
             ax.set_aspect("equal")
             
             if is_building:
-                line_value = 0.5 * 2/3
-                ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.1, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.2, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.3, color='black', linestyle='-', linewidth=2)
 
             plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_idx}_{name}_{freq:.1f}Hz_phase.png"))
             plt.close(fig)
@@ -846,11 +848,9 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             ax.set_aspect("equal")
             
             if is_building:
-                line_value = 0.5 * 2/3
-                ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.1, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.2, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.3, color='black', linestyle='-', linewidth=2)
             image_list.append(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
             plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_index}_{name}_{snapshot}.png"))
             plt.close(fig)
@@ -913,11 +913,9 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             ax.set_aspect("equal")
             
             if is_building:
-                line_value = 0.5 * 2/3
-                ax.axhline(y=line_value, color='red', linestyle='--', linewidth=2)
-                ax.axvline(x=0.1, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.2, color='red', linestyle='-', linewidth=2)
-                ax.axvline(x=0.3, color='red', linestyle='-', linewidth=2)
+                ax.axvline(x=0.1, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.2, color='black', linestyle='-', linewidth=2)
+                ax.axvline(x=0.3, color='black', linestyle='-', linewidth=2)
             image_list.append(os.path.join(save_dir, f"2_modeshape_{mode_indices}_{name}_{snapshot}.png"))
             plt.savefig(os.path.join(save_dir, f"2_modeshape_{mode_indices}_{name}_{snapshot}.png"))
             plt.close(fig)
@@ -1892,7 +1890,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         # Plot the first dataset
         sc1 = ax.scatter(df1['Frequency (Hz)'], df1['Amplitude'], 
-                         color='blue', label='WT', s=50)
+                         color='blue', label='WT', s=25, alpha=0.7)
         
         # Annotate points with their original mode numbers for the first dataset
         #for i, row in df1.iterrows():
@@ -1900,7 +1898,7 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         
         # Plot the second dataset
         sc2 = ax.scatter(df2['Frequency (Hz)'], df2['Amplitude'], 
-                         color='orange', label='CFD', s=50)
+                         color='orange', label='CFD', s=25, alpha=0.7)
         
         # Annotate points with their original mode numbers for the second dataset
         #for i, row in df2.iterrows():
@@ -1909,13 +1907,14 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         # Set the plot title and axis labels
         ax.set_xlabel("Frequency (Hz)", fontsize=20)
         ax.set_ylabel("Amplitude", fontsize=20)
+        ax.grid(True, linestyle="--", alpha=0.7)
         
         # Set the x and y limits based on provided values or auto-calculated ones
         xlim = xlim_max if xlim_max is not None else max(df1['Frequency (Hz)'].max(), df2['Frequency (Hz)'].max())
         ylim = ylim_max if ylim_max is not None else max(df1['Amplitude'].max(), df2['Amplitude'].max())
         
         ax.set_xlim(0, xlim)
-        ax.set_ylim(0, ylim)
+        ax.set_ylim(0, 200)
         
         # Add a legend to distinguish between the datasets
         ax.legend(fontsize=16)
@@ -2442,9 +2441,9 @@ def collect_and_average_energy_with_rankings(data_dir, save_dir, start, end, win
          
         
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data\x=-2"
-    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\2_HankelDMD-update_pressure_400_full_rank_flow_field"
-    cfd_base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\2_HankelDMD-update_pressure_400_full_rank_flow_field"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
+    base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank"
+    cfd_base_save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\HankelDMD-update_pressure_400_full_rank"
     svd_rank = -1
     delay_length = 30
 
@@ -2469,78 +2468,79 @@ if __name__ == "__main__":
         # Initialize analysis object
         analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
         analysis.make_save_dir()
-        names = ["p", "ux", "uy", "uz"]
-        is_building_li = [False, False, False, False]
-        relative_paths = [r"p.csv", r"ux4.csv", r"uy4.csv", r"uz4.csv"]
-        coords_relative_paths = [r"coords.csv", r"coords4.csv", r"coords4.csv", r"coords4.csv"]
+        names = ["p"]
+        is_building_li = [True]
+        relative_paths = [r"p.csv"]
+        coords_relative_paths = [r"coords.csv"]
+        
         analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
 
         # Trim datasets for this time window
-        analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0, 1, 2, 3])
+        analysis.trim_datasets(t1=t1, t2=t2, i1=0, i2=None, ds_indices=[0])
         # Process datasets
         analysis.demean_datasets()
-        analysis.normalize_group(ds_indices = [0])
-        analysis.normalize_group(ds_indices = [1, 2, 3]) 
-        analysis.fit(ds_indices=[0, 1, 2, 3])
-        analysis.plot_amplitude_frequency()
-        analysis.plot_energy_frequency("energy_frequency")
-        analysis.plot_pressure_energy_frequency("pressure_energy_frequency")
-        analysis.plot_pressure_velocity_ratio("ratio_frequency")
-        analysis.plot_binned_pressure_velocity_ratio(title="binned_ratio_frequency", bin_width=5)
-        analysis.plot_dmd_eigenvalues()
-        analysis.plot_binned_energy_frequency(title="binned_energy_frequency")
-        analysis.plot_binned_stacked_energy(title="binned_stacked_energy")
-        analysis.plot_velocity_energy_frequency(title="velocity_energy_frequency")
-        analysis.plot_timeseries([160, 550, 700, 850])
+        analysis.normalize_group(ds_indices = [0]) 
+        analysis.fit(ds_indices=[0])
+        #analysis.plot_amplitude_frequency()
+        #analysis.plot_energy_frequency("energy_frequency")
+        #analysis.plot_pressure_energy_frequency("pressure_energy_frequency")
+        #analysis.plot_pressure_velocity_ratio("ratio_frequency")
+        #analysis.plot_binned_pressure_velocity_ratio(title="binned_ratio_frequency", bin_width=5)
+        #analysis.plot_dmd_eigenvalues()
+        #analysis.plot_binned_energy_frequency(title="binned_energy_frequency")
+        #analysis.plot_binned_stacked_energy(title="binned_stacked_energy")
+        #analysis.plot_velocity_energy_frequency(title="velocity_energy_frequency")
+        #analysis.plot_timeseries([166, 161, 176])
         analysis.save_dmd()
-        #analysis.plot_all_ds(plot_negative=True)
+        analysis.plot_all_ds(plot_negative=True)
+        #analysis.plot_combined_amplitude_frequency("combined_amplitude_frequency", f"{save_dir}\mode_data.csv", f"{cfd_save_dir}\mode_data.csv")
 
         #analysis.plot_modes()
         # Save the summed energy to CSV
         #analysis.plot_summed_energy_groups("energy_bins")
-        #analysis.plot_rms_timeseries()
+        analysis.plot_rms_timeseries()
         #analysis.plot_cumulative_energy("cumulative_energy")
         
         #plot_cumulative_energy_comparison(f"{save_dir}\cumulative_energy_data.csv", f"{cfd_save_dir}\cumulative_energy_data.csv", ("WT", "CFD"), "Cumulative Energy Comparison", save_dir)
         #analysis.plot_combined_energy_frequency("combined_energy_frequency", f"{save_dir}\energy_frequency_data.csv", f"{cfd_save_dir}\energy_frequency_data.csv")
 
-        # Load the saved summed energy CSV for this window
-        #summed_energy_csv_path = os.path.join(save_dir, "summed_energy_groups.csv")
-        #summed_energy_df = pd.read_csv(summed_energy_csv_path)
+    #     # Load the saved summed energy CSV for this window
+    #     summed_energy_csv_path = os.path.join(save_dir, "summed_energy_groups.csv")
+    #     summed_energy_df = pd.read_csv(summed_energy_csv_path)
         
-        # Collect the summed energy values
-        #summed_energy_all_windows.append(summed_energy_df['Energy'].values)
+    #     # Collect the summed energy values
+    #     summed_energy_all_windows.append(summed_energy_df['Energy'].values)
 
-    # Convert list to a numpy array for easier manipulation
-    #summed_energy_all_windows = np.array(summed_energy_all_windows)
+    # # Convert list to a numpy array for easier manipulation
+    # summed_energy_all_windows = np.array(summed_energy_all_windows)
 
-    # Calculate the mean and standard deviation across all windows for each bin
-    #mean_summed_energy = summed_energy_all_windows.mean(axis=0)
-    #std_summed_energy = summed_energy_all_windows.std(axis=0)
+    # # Calculate the mean and standard deviation across all windows for each bin
+    # mean_summed_energy = summed_energy_all_windows.mean(axis=0)
+    # std_summed_energy = summed_energy_all_windows.std(axis=0)
 
-    # Create a DataFrame to store the results
-    #result_df = pd.DataFrame({
-    #    'Frequency Group': summed_energy_df['Group'],
-    #    'Average Summed Energy': mean_summed_energy,
-    #    'Standard Deviation': std_summed_energy
-    #})
+    # # Create a DataFrame to store the results
+    # result_df = pd.DataFrame({
+    #     'Frequency Group': summed_energy_df['Group'],
+    #     'Average Summed Energy': mean_summed_energy,
+    #     'Standard Deviation': std_summed_energy
+    # })
 
-    # Save the results to a CSV file
-    #output_csv_path = r"C:\Users\Keith\Documents\research_paper\pressure-case\average_summed_energy_with_std.csv"
-    #result_df.to_csv(output_csv_path, index=False)
+    # # Save the results to a CSV file
+    # output_csv_path = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\average_summed_energy_with_std.csv"
+    # result_df.to_csv(output_csv_path, index=False)
 
-    # Plot the average and standard deviation
-    #fig, ax = plt.subplots(figsize=(8, 6))
-    #ax.bar(summed_energy_df['Group'], mean_summed_energy, color='orange', yerr=std_summed_energy, capsize=5)
+    # # Plot the average and standard deviation
+    # fig, ax = plt.subplots(figsize=(8, 6))
+    # ax.bar(summed_energy_df['Group'], mean_summed_energy, color='orange', yerr=std_summed_energy, capsize=5)
     
-    # Set the plot title and axis labels
-    #ax.set_title("Average Summed Energy for Each Frequency Group with Standard Deviation", fontsize=20)
-    #ax.set_xlabel("Frequency Group", fontsize=20)
-    #ax.set_ylabel("Average Summed Energy", fontsize=20)
+    # # Set the plot title and axis labels
+    # ax.set_title("Average Summed Energy for Each Frequency Group with Standard Deviation", fontsize=20)
+    # ax.set_xlabel("Frequency Group", fontsize=20)
+    # ax.set_ylabel("Average Summed Energy", fontsize=20)
     
-    #plot_png_path = r"C:\Users\Keith\Documents\research_paper\pressure-case\average_summed_energy_plot.png"
-    #plt.savefig(plot_png_path, dpi=300)  # Save with 300 dpi for high resolution
-    #plt.close(fig)  # Close the figure after saving to free memory
+    # plot_png_path = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\average_summed_energy_plot.png"
+    # plt.savefig(plot_png_path, dpi=300)  # Save with 300 dpi for high resolution
+    # plt.close(fig)  # Close the figure after saving to free memory
 
 
 
@@ -2653,7 +2653,7 @@ ax.bar(x + bar_width/2, mean_energy_2, bar_width, yerr=std_energy_2, capsize=5, 
 ax.set_xticks(x)
 ax.set_xticklabels(groups, fontsize=14)
 ax.set_xlabel("Frequency Group", fontsize=16)
-ax.set_ylabel("Average Summed Energy", fontsize=16)
+ax.set_ylabel("Group-Summed DMD Power", fontsize=16)
 #ax.set_title("Comparison of Summed Energy Across Frequency Groups", fontsize=18)
 ax.legend(fontsize=14)
 
