@@ -853,12 +853,12 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close("all")
             gc.collect()
 if __name__ == "__main__":
-    data_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\CFD-pressure-case\sensitivity-analysis-final"
+    data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis-finalv3"
 
     max_level = 6
     max_cycles = 4
-    svd_rank = 0.99
+    svd_rank = -1
     tikhonov_regularization = 1e-7
     delay_length = 5
     analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
@@ -896,7 +896,7 @@ if __name__ == "__main__":
     num_snapshots_list = [50, 100, 200, 300, 400, 500, 800, 1000]
     average_errors_dict = {}
 
-    delay_lengths = [1, 10, 20, 30, 40]
+    delay_lengths = [10, 20, 30, 40]
     average_errors_dict = {}
 
     plt.figure(figsize=(6, 4), dpi = 300)
@@ -929,7 +929,6 @@ if __name__ == "__main__":
     df.to_excel(os.path.join(save_dir, 'average_errors_all.xlsx'), index=False)
     plt.xlabel('Number of Snapshots')
     plt.ylabel('Average Reconstruction Error')
-    plt.ylim(0, 35)
     # plt.title('Sensitivity Analysis: Average Error vs. Number of Snapshots')
     plt.legend()
     plt.grid(True)
