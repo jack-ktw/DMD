@@ -442,7 +442,8 @@ class HankelDMDAnalysis(DMDAnalysisBase):
         print(orig_pdata.shape)
         print(dmd_pdata.shape)
         rmse = np.sqrt(np.sum(np.square(np.subtract(orig_pdata, dmd_pdata))) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
-        return rmse
+        rms = np.sqrt(np.sum(np.square(orig_pdata)) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
+        return rmse / rms
                 
     def plot_dynamics(self):
         pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
@@ -856,9 +857,9 @@ if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
     save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis-finalv4"
 
-    svd_ranks = [0.9, 0.95, 0.99, -1]
-    delay_lengths = [10, 20, 30, 40]
-    num_snapshots_list = [50, 100, 200, 300, 400, 500, 800, 1000]
+    svd_ranks = [0.8, 0.9, 0.95, 0.99, 0.999, 0.9999, -1]
+    delay_lengths = [1, 10, 20, 30, 40]
+    fixed_num_snapshots = 400
 
     names = ["p"]
     is_building_li = [False, False, False, False]
@@ -867,51 +868,47 @@ if __name__ == "__main__":
 
     all_data = []
 
+    plt.figure(figsize=(8, 6), dpi=300)
+
     for svd_rank in svd_ranks:
-        average_errors_dict = {}
-
-        plt.figure(figsize=(6, 4), dpi=300)
-
+        errors = []
         for delay_length in delay_lengths:
-            average_errors_dict[delay_length] = {}
+            analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
+            analysis.make_save_dir()
+            analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
+            analysis.trim_datasets(t1=1000, t2=1000+fixed_num_snapshots, i1=0, i2=None, ds_indices=[0])
+            analysis.demean_datasets()
+            analysis.normalize_group(ds_indices=[0])
+            analysis.fit(ds_indices=[0])
+            analysis.save_dmd()
 
-            for N in num_snapshots_list:
-                analysis = HankelDMDAnalysis(data_dir, save_dir, svd_rank, delay_length)
-                analysis.make_save_dir()
-                analysis.add_datasets(names, relative_paths, coords_relative_paths, is_building_li)
-                analysis.trim_datasets(t1=1000, t2=1000+N, i1=0, i2=None, ds_indices=[0])
-                analysis.demean_datasets()
-                analysis.normalize_group(ds_indices=[0])
-                analysis.fit(ds_indices=[0])
-                analysis.save_dmd()
+            average_error = analysis.calc_average_error(500)
 
-                average_error = analysis.calc_average_error(500)
-                average_errors_dict[delay_length][N] = average_error
-                all_data.append({
-                    'SVD Rank': svd_rank,
-                    'Delay Length': delay_length,
-                    'Number of Snapshots': N,
-                    'Average Error': average_error
-                })
+            all_data.append({
+                'SVD Rank': svd_rank,
+                'Delay Length': delay_length,
+                'Number of Snapshots': fixed_num_snapshots,
+                'Average Error': average_error
+            })
 
-            plt.plot(
-                list(average_errors_dict[delay_length].keys()),
-                list(average_errors_dict[delay_length].values()),
-                marker='o', linestyle='-',
-                label=f'Delay Length: {delay_length}'
-            )
+            errors.append(average_error)
 
-        plt.xlabel('Number of Snapshots')
-        plt.ylabel('Average Reconstruction Error')
-        plt.legend()
-        plt.grid(True)
-        rank_str = f"svdrank_{str(svd_rank).replace('.', '_')}" if svd_rank != -1 else "svdrank_full"
-        plt.savefig(os.path.join(save_dir, f"sensitivity_analysis_delays_{rank_str}.png"))
-        plt.close()
+        label = f"Rank: {svd_rank if svd_rank != -1 else 'full'}"
+        plt.plot(delay_lengths, errors, marker='o', linestyle='-', label=label)
 
-    # Save combined results for all SVD ranks
+    plt.xlabel("Delay Length")
+    plt.ylabel("Average Reconstruction Error")
+    plt.ylim((0,1))
+    plt.title(f"Reconstruction Error vs Delay Length (Snapshots = {fixed_num_snapshots})")
+    plt.legend(title="SVD Rank")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_dir, f"sensitivity_fixedsnapshots_{fixed_num_snapshots}.png"))
+    plt.close()
+
+    # Save results to Excel
     df = pd.DataFrame(all_data)
-    df.to_excel(os.path.join(save_dir, 'average_errors_all_svdranks.xlsx'), index=False)
+    df.to_excel(os.path.join(save_dir, f'average_errors_fixedsnapshots_{fixed_num_snapshots}.xlsx'), index=False)
     
     
     # %%
