@@ -436,14 +436,16 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             plt.close()
         
     def calc_average_error(self, probes):
-        orig_pdata = self.dmd.reconstructed_data
+        orig_pdata = self.dmd.reconstructed_data.real
         dmd_pdata = np.transpose(self.train_X)
         print("shapes:")
         print(orig_pdata.shape)
         print(dmd_pdata.shape)
         rmse = np.sqrt(np.sum(np.square(np.subtract(orig_pdata, dmd_pdata))) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
+        range0 = np.max(orig_pdata) - np.min(orig_pdata)
         rms = np.sqrt(np.sum(np.square(orig_pdata)) / (len(orig_pdata[0,:] * len(orig_pdata[:,0]))))
-        return rmse / rms
+        print(f"RMS: {rms}, RMSE: {rmse}, RANGE: {range0}")
+        return rmse / range0
                 
     def plot_dynamics(self):
         pattern = os.path.join(self.save_dir, f"1_*_dynamics.png")
@@ -855,10 +857,10 @@ class HankelDMDAnalysis(DMDAnalysisBase):
             gc.collect()
 if __name__ == "__main__":
     data_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\Data"
-    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis-finalv4"
+    save_dir = r"C:\Users\Keith\Documents\research_paper\pressure-case\sensitivity-analysis-finalv5"
 
-    svd_ranks = [0.8, 0.9, 0.95, 0.99, 0.999, 0.9999, -1]
-    delay_lengths = [1, 10, 20, 30, 40]
+    svd_ranks = [0.8, 0.9, 0.99, 0.999, 0.9999, -1]
+    delay_lengths = [10, 20, 30, 40]
     fixed_num_snapshots = 400
 
     names = ["p"]
